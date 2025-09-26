@@ -75,20 +75,25 @@ export default function DashboardPage() {
     }, [token, fetchData]);
 
     const handleAnalyzeRepo = async (repoFullName) => {
-        setIsAnalyzing(true);
-        setAnalysisResult(null);
-        setError('');
-        try {
-            const config = { headers: { 'Authorization': `Bearer ${token}` } };
-            const response = await axios.post(`${SERVER_URL}/api/analyze-repo`, { repoName: repoFullName }, config);
-            setAnalysisResult(response.data);
-        } catch (err) {
-            setError("Phân tích thất bại. Vui lòng thử lại.");
-            console.error("Lỗi khi phân tích:", err);
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+    setError('');
+    try {
+        const config = { headers: { 'Authorization': `Bearer ${token}` } };
+        
+        // ======================= SỬA LỖI Ở ĐÂY ============================
+        // Đổi `repoName` thành `repoFullName` để khớp với backend
+        const response = await axios.post(`${SERVER_URL}/api/analyze-repo`, { repoFullName: repoFullName }, config);
+        // =================================================================
+        
+        setAnalysisResult(response.data);
+    } catch (err) {
+        setError("Phân tích thất bại. Vui lòng thử lại.");
+        console.error("Lỗi khi phân tích:", err);
+    } finally {
+        setIsAnalyzing(false);
+    }
+};
 
     if (isLoading) {
         return <div className="app-container"><Spinner /></div>;

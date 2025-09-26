@@ -23,18 +23,21 @@ function AuthCallback() {
         const tokenFromUrl = urlParams.get('token');
 
         if (tokenFromUrl) {
-            // Lưu token "xịn" của chúng ta vào localStorage
+            // Lưu token
             localStorage.setItem('jwt_token', tokenFromUrl);
-            // Điều hướng đến trang Dashboard, trang này sẽ tự lấy token từ localStorage để fetch data
+            // Xóa token khỏi URL để thanh địa chỉ đẹp hơn
+            window.history.replaceState(null, '', '/dashboard');
+            // Điều hướng đến trang Dashboard
             navigate('/dashboard', { replace: true });
         } else {
-            // Nếu không có token, có thể đã có lỗi
-            navigate('/login', { replace: true });
+            // Nếu không có token, điều hướng về trang đăng nhập
+            navigate('/login-error', { replace: true });
         }
     }, [navigate]);
 
-    return <div className="app-container"><h1>Đang xử lý xác thực...</h1></div>;
+    return <div style={{ textAlign: 'center', padding: '50px' }}><h1>Đang xử lý xác thực...</h1></div>;
 }
+
 
 // Component Navbar để dùng chung cho các trang
 function Navbar() {
@@ -85,25 +88,23 @@ function App() {
         <Navbar />
         <main>
             <Routes>
-              <Route path="/" element={<HomePage />} />
-              
-              {/* Student Routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/auth/github/callback" element={<AuthCallback />} />
-              <Route path="/profile/:username" element={<ProfilePage />} />
-              
-              {/* Recruiter Routes */}
-              <Route path="/recruiter/login" element={<RecruiterLoginPage />} />
-              <Route path="/recruiter/register" element={<RecruiterRegisterPage />} />
-              
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<HomePage />} />
+                
+                {/* Public Routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/recruiter/login" element={<RecruiterLoginPage />} />
+                <Route path="/recruiter/register" element={<RecruiterRegisterPage />} />
+
+                {/* Đây là route quan trọng để "đón" token từ GitHub */}
+                <Route path="/auth/github/callback" element={<AuthCallback />} />
+                
+                {/* Protected Routes (Các trang cần đăng nhập mới vào được) */}
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/recruiter/dashboard" element={<RecruiterDashboardPage />} />
-              </Route>
-              
-              <Route path="/login-error" element={<div className="app-container"><h1>Đăng nhập thất bại</h1><p>Đã có lỗi xảy ra trong quá trình xác thực với GitHub. Vui lòng thử lại.</p></div>} />
-              <Route path="*" element={<div className="app-container"><h1>404 - Không tìm thấy trang</h1></div>} />
+                
+                {/* Fallback & Error Routes */}
+                <Route path="/login-error" element={<div style={{ textAlign: 'center', padding: '50px' }}><h1>Đăng nhập thất bại</h1><p>Vui lòng thử lại.</p></div>} />
+                <Route path="*" element={<div style={{ textAlign: 'center', padding: '50px' }}><h1>404 - Không tìm thấy trang</h1></div>} />
             </Routes>
         </main>
     </Router>

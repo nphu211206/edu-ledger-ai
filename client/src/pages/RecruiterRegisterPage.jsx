@@ -24,10 +24,9 @@ export default function RecruiterRegisterPage() {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-
+    e.preventDefault();
+    setError('');
+    setSuccess('');
         // --- Client-side Validation (đẳng cấp) ---
         if (!formData.name || !formData.email || !formData.password) {
             return setError('Vui lòng điền đầy đủ các trường bắt buộc.');
@@ -40,26 +39,34 @@ export default function RecruiterRegisterPage() {
         }
 
         setLoading(true);
-        try {
-            const payload = {
-                name: formData.name,
-                email: formData.email,
-                password: formData.password,
-            };
-            await axios.post(`${SERVER_URL}/auth/recruiter/register`, payload);
-            setSuccess('Đăng ký thành công! Bạn sẽ được chuyển đến trang đăng nhập trong 3 giây.');
-            
-            // Tự động chuyển trang sau khi đăng ký thành công
-            setTimeout(() => {
-                navigate('/recruiter/login');
-            }, 3000);
+    try {
+        const payload = {
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+        };
+        await axios.post(`${SERVER_URL}/auth/recruiter/register`, payload);
+        setSuccess('Đăng ký thành công! Bạn sẽ được chuyển đến trang đăng nhập trong 3 giây.');
+        
+        setTimeout(() => {
+            navigate('/recruiter/login');
+        }, 3000);
 
         } catch (err) {
-            setError(err.response?.data || 'Đã có lỗi xảy ra. Vui lòng thử lại.');
-        } finally {
-            setLoading(false);
+        // ======================= FIX HERE ============================
+        // Dạy cho frontend cách đọc đúng thông báo lỗi từ server
+        // Nếu server trả về { "message": "Email đã được sử dụng." }
+        // thì chúng ta chỉ lấy ra dòng chữ đó thôi.
+        if (err.response && err.response.data && err.response.data.message) {
+            setError(err.response.data.message);
+        } else {
+            setError('Đã có lỗi xảy ra. Vui lòng thử lại.');
         }
-    };
+        // =============================================================
+    } finally {
+        setLoading(false);
+    }
+};
 
     return (
         <div className="auth-container">
