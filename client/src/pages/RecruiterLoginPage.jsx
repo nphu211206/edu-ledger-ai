@@ -1,82 +1,118 @@
 // /client/src/pages/RecruiterLoginPage.jsx
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
 
-const SERVER_URL = 'http://localhost:3000';
+// --- Các Component con dùng chung (có thể tách ra file riêng sau này) ---
+const AuthGraphicPanel = () => (
+    <div className="hidden lg:flex flex-col items-center justify-center bg-gray-800 p-12 text-white text-center">
+        <h1 className="text-4xl font-bold">
+            <span className="text-blue-400">Edu</span>
+            <span className="text-purple-400">Ledger</span> AI
+        </h1>
+        <p className="mt-4 text-lg text-gray-300">Xưởng đúc tài năng công nghệ thế hệ mới.</p>
+        <p className="mt-2 text-gray-400">Nơi năng lực được xác thực, không chỉ là lời nói.</p>
+    </div>
+);
 
+const FormInput = ({ id, label, error, ...props }) => (
+    <div className="w-full">
+        <label htmlFor={id} className="block text-sm font-medium text-gray-300 mb-1">{label}</label>
+        <input id={id} className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-500' : 'border-gray-600'}`} {...props} />
+        {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+    </div>
+);
+
+const Spinner = () => <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>;
+
+const Alert = ({ message }) => (
+    <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center">{message}</div>
+);
+
+// --- Component chính ---
 export default function RecruiterLoginPage() {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
 
-    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+        setError(''); // Xóa lỗi khi người dùng bắt đầu nhập lại
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!formData.email || !formData.password) {
+            return setError('Vui lòng nhập đầy đủ email và mật khẩu.');
+        }
+        setIsLoading(true);
         setError('');
-        setLoading(true);
+
         try {
-            const response = await axios.post(`${SERVER_URL}/auth/recruiter/login`, formData);
-            localStorage.setItem('jwt_token', response.data.token);
-            navigate('/recruiter/dashboard');
+            const response = await axios.post(`http://localhost:3800/auth/recruiter/login`, formData);
+            const { token } = response.data;
+
+            // **QUAN TRỌNG: Lưu token vào Local Storage**
+            localStorage.setItem('token', token);
+
+            // Chuyển hướng đến trang dashboard của nhà tuyển dụng
+            navigate('/recruiter/dashboard'); 
+
         } catch (err) {
-            setError(err.response?.data?.message || 'Đăng nhập thất bại.');
+            const message = err.response?.data?.message || 'Đã có lỗi không xác định xảy ra.';
+            setError(message);
         } finally {
-            setLoading(false);
+            setIsLoading(false);
         }
     };
 
     return (
-        <div className="bg-gray-900 min-h-screen flex items-center justify-center text-white p-4">
-            <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md border border-gray-700">
-                <h2 className="text-3xl font-bold text-center text-blue-400 mb-2">Đăng nhập Nhà tuyển dụng</h2>
-                <p className="text-center text-gray-400 mb-6">Truy cập hệ thống tìm kiếm tài năng</p>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email</label>
-                        <input
-                            type="email"
+        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+            <div className="max-w-4xl w-full mx-auto rounded-xl shadow-2xl overflow-hidden md:grid md:grid-cols-2">
+                <AuthGraphicPanel />
+                <div className="p-8 bg-gray-800">
+                    <h2 className="text-2xl font-bold text-center text-white">Đăng nhập Nhà tuyển dụng</h2>
+                    <p className="mt-2 text-center text-sm text-gray-400">
+                        Chưa có tài khoản?{' '}
+                        <Link to="/recruiter/register" className="font-medium text-blue-400 hover:text-blue-300">
+                            Tạo tài khoản mới
+                        </Link>
+                    </p>
+
+                    <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+                        {error && <Alert message={error} />}
+                        <FormInput
                             id="email"
                             name="email"
+                            type="email"
+                            label="Email"
+                            placeholder="your.email@company.com"
                             value={formData.email}
                             onChange={handleChange}
                             required
-                            className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
-                    </div>
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-300">Mật khẩu</label>
-                        <input
-                            type="password"
+                        <FormInput
                             id="password"
                             name="password"
+                            type="password"
+                            label="Mật khẩu"
+                            placeholder="••••••••"
                             value={formData.password}
                             onChange={handleChange}
                             required
-                            className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
-                    </div>
-
-                    {error && <p className="text-red-400 text-sm text-center bg-red-900 bg-opacity-30 p-3 rounded-md">{error}</p>}
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                        >
-                            {loading ? 'Đang xử lý...' : 'Đăng nhập'}
-                        </button>
-                    </div>
-                </form>
-                <p className="mt-6 text-center text-sm text-gray-400">
-                    Chưa có tài khoản?{' '}
-                    <Link to="/recruiter/register" className="font-medium text-blue-400 hover:text-blue-300">
-                        Tạo tài khoản mới
-                    </Link>
-                </p>
+                        <div>
+                            <button 
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            >
+                                {isLoading ? <Spinner /> : 'Đăng nhập'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     );

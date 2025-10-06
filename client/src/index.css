@@ -1,11 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* client/src/index.css */
 
+/* Nhập khẩu 3 lớp tiện ích cốt lõi của Tailwind. 
+  Bắt buộc phải có và đúng thứ tự.
+*/
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Thêm một vài style mặc định cho toàn bộ trang web 
+  để có một khởi đầu đẹp mắt hơn.
+*/
 body {
-  @apply bg-dark-bg text-gray-200 font-sans;
+  background-color: #0D1117; /* Sử dụng màu 'dark-bg' đã định nghĩa */
+  color: #E6EDF3;           /* Sử dụng màu 'text-primary' */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+/* /client/src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Thêm animation cho Spinner nếu bạn muốn một cái đẹp hơn */
+/* Dù đoạn code trên đã có animation cơ bản của Tailwind */
