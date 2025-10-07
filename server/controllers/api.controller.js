@@ -148,3 +148,48 @@ exports.analyzeRepo = async (req, res) => {
     }
 };
 // =======================================================================================
+exports.getPublicProfile = async (req, res) => {
+    // Lấy username từ URL, ví dụ: /api/profile/nphu211206
+    const { username } = req.params;
+
+    try {
+        const pool = await poolPromise;
+
+        // Lấy thông tin cơ bản của user
+        const userResult = await pool.request()
+            .input('githubUsername', sql.NVarChar, username)
+            .query('SELECT id, name, avatarUrl, bio, githubUsername FROM Users WHERE githubUsername = @githubUsername AND role = \'student\'');
+
+        if (userResult.recordset.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy hồ sơ sinh viên này.' });
+        }
+        
+        const userProfile = userResult.recordset[0];
+        const userId = userProfile.id;
+
+        // Lấy danh sách kỹ năng đã xác thực của user đó
+        const skillsResult = await pool.request()
+            .input('userId', sql.Int, userId)
+            .query(`
+                SELECT s.name AS skill_name, us.score
+                FROM UserSkills us
+                JOIN Skills s ON us.skillId = s.id
+                WHERE us.userId = @userId
+                ORDER BY us.score DESC;
+            `);
+        
+        // Lấy danh sách các repo public của user đó từ GitHub API
+        const reposResponse = await axios.get(`https://api.github.com/users/${username}/repos?sort=updated&per_page=10`);
+
+        // Gộp tất cả dữ liệu và trả về
+        res.status(200).json({
+            profile: userProfile,
+            skills: skillsResult.recordset,
+            repos: reposResponse.data
+        });
+
+    } catch (error) {
+        console.error(`Lỗi khi lấy hồ sơ công khai cho ${username}:`, error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi tải hồ sơ.' });
+    }
+};

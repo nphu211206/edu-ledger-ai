@@ -46,7 +46,8 @@ exports.handleGithubCallback = async (req, res) => {
             userId: user.id, 
             role: user.role,
             name: user.name, // Thêm name và avatar vào token
-            avatarUrl: user.avatarUrl
+            avatarUrl: user.avatarUrl,
+            githubUsername: user.githubUsername 
         };
         const ourToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
         

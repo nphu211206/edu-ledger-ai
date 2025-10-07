@@ -7,13 +7,17 @@ const router = express.Router();
 const apiController = require('../controllers/api.controller'); 
 const authenticateToken = require('../middleware/authenticateToken');
 
+
 // Dùng middleware "gác cổng" cho tất cả các route bên dưới
 router.use(authenticateToken);
+router.get('/profile/:username', apiController.getPublicProfile);
+
 
 // Các route đã có
 router.get('/me', apiController.getMe);
 router.get('/repos', apiController.getRepos);
 router.post('/analyze-repo', apiController.analyzeRepo);
+
 
 // Route mới cho việc tìm kiếm
 router.post('/recruiter/search', apiController.searchStudents);

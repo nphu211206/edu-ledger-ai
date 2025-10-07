@@ -1,13 +1,12 @@
 // /client/src/components/Header.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth'; // Import hook "thần thánh" của chúng ta
+import { useAuth } from '../hooks/useAuth';
 
 const UserMenu = ({ user, onLogout }) => {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef(null);
 
-    // Xử lý click ra ngoài để đóng dropdown
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
@@ -32,7 +31,7 @@ const UserMenu = ({ user, onLogout }) => {
                     <NavLink to={dashboardLink} className={({ isActive }) => `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isActive ? 'bg-gray-100' : ''}`} onClick={() => setIsOpen(false)}>
                         Dashboard
                     </NavLink>
-                    <NavLink to="/profile" className={({ isActive }) => `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isActive ? 'bg-gray-100' : ''}`} onClick={() => setIsOpen(false)}>
+                    <NavLink to={`/profile/${user.githubUsername}`} className={({ isActive }) => `block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isActive ? 'bg-gray-100' : ''}`} onClick={() => setIsOpen(false)}>
                         Hồ sơ của tôi
                     </NavLink>
                     <div className="border-t border-gray-200 my-1"></div>
