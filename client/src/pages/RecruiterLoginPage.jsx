@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 
-// --- Các Component con dùng chung (có thể tách ra file riêng sau này) ---
+// --- Các Component con dùng chung ---
 const AuthGraphicPanel = () => (
     <div className="hidden lg:flex flex-col items-center justify-center bg-gray-800 p-12 text-white text-center">
         <h1 className="text-4xl font-bold">
@@ -38,7 +38,7 @@ export default function RecruiterLoginPage() {
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
-        setError(''); // Xóa lỗi khi người dùng bắt đầu nhập lại
+        setError('');
     };
 
     const handleSubmit = async (e) => {
@@ -50,13 +50,13 @@ export default function RecruiterLoginPage() {
         setError('');
 
         try {
+            // ======================= FIX HERE ============================
+            // Đảm bảo gọi đúng API endpoint cho việc ĐĂNG NHẬP
             const response = await axios.post(`http://localhost:3800/auth/recruiter/login`, formData);
+            // =============================================================
+
             const { token } = response.data;
-
-            // **QUAN TRỌNG: Lưu token vào Local Storage**
             localStorage.setItem('token', token);
-
-            // Chuyển hướng đến trang dashboard của nhà tuyển dụng
             navigate('/recruiter/dashboard'); 
 
         } catch (err) {

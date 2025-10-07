@@ -15,11 +15,42 @@ body {
   color: #E6EDF3;           /* Sử dụng màu 'text-primary' */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  overflow-x: hidden;
 }
-/* /client/src/index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+.auth-container::before,
+.auth-container::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  filter: blur(100px);
+  -webkit-filter: blur(100px);
+  border-radius: 50%;
+}
 
-/* Thêm animation cho Spinner nếu bạn muốn một cái đẹp hơn */
-/* Dù đoạn code trên đã có animation cơ bản của Tailwind */
+.auth-container::before {
+  width: 300px;
+  height: 300px;
+  background-color: rgba(59, 130, 246, 0.2); /* Màu xanh blue nhạt */
+  top: -50px;
+  left: -100px;
+  animation: pulse 10s infinite alternate;
+}
+
+.auth-container::after {
+  width: 400px;
+  height: 400px;
+  background-color: rgba(168, 85, 247, 0.2); /* Màu tím purple nhạt */
+  bottom: -100px;
+  right: -150px;
+  animation: pulse 12s infinite alternate-reverse;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(0.8);
+  }
+  to {
+    transform: scale(1.2);
+  }
+}

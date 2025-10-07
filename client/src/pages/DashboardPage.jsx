@@ -160,7 +160,7 @@ const token = localStorage.getItem('token');
             const token = localStorage.getItem('token');
             const response = await axios.post(
                 `http://localhost:3800/api/analyze-repo`,
-                { repoName },
+                { repoFullName: repoName }, 
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             setAnalysisResult(response.data);
@@ -218,7 +218,7 @@ const token = localStorage.getItem('token');
                                         <p className="text-gray-300 text-sm mt-1">{repo.description || "Không có mô tả."}</p>
                                     </div>
                                     <button 
-                                        onClick={() => handleAnalyzeRepo(repo.name, repo.id)}
+                                        onClick={() => handleAnalyzeRepo(repo.full_name, repo.id)}
                                         disabled={!!analyzingRepoId}
                                         className="mt-3 sm:mt-0 sm:ml-4 bg-blue-600 text-white font-bold py-2 px-5 rounded-lg transition-all duration-300 ease-in-out disabled:bg-gray-500 disabled:cursor-not-allowed hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 min-w-[120px]"
                                     >

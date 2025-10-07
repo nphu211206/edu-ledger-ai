@@ -134,8 +134,8 @@ export default function RecruiterRegisterPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-            <div className="max-w-4xl w-full mx-auto rounded-xl shadow-2xl overflow-hidden md:grid md:grid-cols-2">
+        <div className="auth-container min-h-screen bg-gray-900 flex items-center justify-center overflow-hidden">
+            <div className="max-w-4xl w-full mx-auto rounded-xl shadow-2xl overflow-hidden md:grid md:grid-cols-2 relative z-10">
                 <AuthGraphicPanel />
                 <div className="p-8 bg-gray-800">
                     <h2 className="text-2xl font-bold text-center text-white">Tạo tài khoản Nhà tuyển dụng</h2>

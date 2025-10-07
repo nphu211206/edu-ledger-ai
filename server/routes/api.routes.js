@@ -17,5 +17,7 @@ router.post('/analyze-repo', apiController.analyzeRepo);
 
 // Route mới cho việc tìm kiếm
 router.post('/recruiter/search', apiController.searchStudents);
+router.get('/skills', apiController.getSkills);
+
 
 module.exports = router;
