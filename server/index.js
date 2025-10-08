@@ -9,6 +9,7 @@ const { poolPromise } = require('./config/db');
 // Import các router
 const authRoutes = require('./routes/auth.routes');
 const apiRoutes = require('./routes/api.routes');
+const jobRoutes = require('./routes/job.routes');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use(express.json());
 // Kết nối các Router
 app.use('/auth', authRoutes);
 app.use('/api', apiRoutes);
+app.use('/jobs', jobRoutes);
 
 const PORT = process.env.PORT || 3000;
 

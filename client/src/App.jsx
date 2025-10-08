@@ -1,6 +1,7 @@
 // /client/src/App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import JobsPage from './pages/JobsPage';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -34,6 +35,7 @@ function App() {
                 <Route path="/recruiter/login" element={<RecruiterLoginPage />} />
                 <Route path="/auth/github/callback" element={<GitHubCallback />} />
                 <Route path="/login-error" element={<LoginErrorPage />} />
+                <Route path="/jobs" element={<JobsPage />} />
 
                 {/* --- CÁC ROUTE CẦN ĐĂNG NHẬP (Sẽ có Layout chung) --- */}
                 <Route element={<MainLayout />}>
