@@ -74,11 +74,46 @@ exports.searchStudents = async (req, res) => {
     if (!skills || !Array.isArray(skills) || skills.length === 0) {
         return res.status(400).json({ message: 'Vui lòng cung cấp ít nhất một tiêu chí kỹ năng.' });
     }
+
     try {
         const pool = await poolPromise;
-        // ... (logic query tìm kiếm không đổi)
+        const request = pool.request();
+        
+        // Xây dựng một câu query an toàn và hiệu quả
+        let subQueries = [];
+        skills.forEach((skill, index) => {
+            const skillNameParam = `skillName${index}`;
+            const minScoreParam = `minScore${index}`;
+            
+            // Mỗi điều kiện sẽ kiểm tra sự tồn tại của một cặp skill-score thỏa mãn
+            subQueries.push(`
+                EXISTS (
+                    SELECT 1
+                    FROM UserSkills us_inner
+                    JOIN Skills s_inner ON us_inner.skillId = s_inner.id
+                    WHERE us_inner.userId = u.id
+                      AND s_inner.name LIKE @${skillNameParam}
+                      AND us_inner.score >= @${minScoreParam}
+                )
+            `);
+            
+            request.input(skillNameParam, sql.NVarChar, `%${skill.name}%`);
+            request.input(minScoreParam, sql.Int, skill.minScore || 0);
+        });
+
+        // Ghép các điều kiện bằng 'AND' để tìm ứng viên có TẤT CẢ các kỹ năng yêu cầu
+        const query = `
+            SELECT DISTINCT u.id, u.name, u.avatarUrl, u.bio, u.githubUsername
+            FROM Users u
+            WHERE u.role = 'student' AND ${subQueries.join(' AND ')};
+        `;
+
+        const result = await request.query(query);
+        res.status(200).json(result.recordset);
+
     } catch (error) {
-        // ...
+        console.error('Lỗi khi tìm kiếm ứng viên:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi tìm kiếm.' });
     }
 };
 
