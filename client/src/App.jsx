@@ -18,6 +18,7 @@ import RecruiterLoginPage from './pages/RecruiterLoginPage';
 import GitHubCallback from './pages/GitHubCallback';
 import DashboardPage from './pages/DashboardPage';
 import RecruiterDashboardPage from './pages/RecruiterDashboardPage';
+import CreateJobPage from './pages/recruiter/CreateJobPage';
 
 
 // Component cho các trang lỗi hoặc chưa tạo
@@ -42,6 +43,7 @@ function App() {
                     <Route element={<ProtectedRoute />}>
     <Route path="/dashboard" element={<DashboardPage />} />
     <Route path="/recruiter/dashboard" element={<RecruiterDashboardPage />} />
+    <Route path="/recruiter/jobs/new" element={<CreateJobPage />} />
     <Route path="/profile/:username" element={<ProfilePage />} /> {/* <-- THÊM ROUTE NÀY */}
 </Route>
                 </Route>

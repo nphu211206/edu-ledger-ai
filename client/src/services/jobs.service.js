@@ -1,13 +1,11 @@
-// src/services/jobs.service.js
-import sql from 'mssql';
-import dbConfig from '../config/db.config.js';
+// File: server/services/jobs.service.js
+// Sửa lại theo cú pháp CommonJS
 
-const pool = new sql.ConnectionPool(dbConfig);
-// Chỉ kết nối một lần và tái sử dụng
-const poolConnect = pool.connect().catch(err => console.error("Database Connection Failed! Bad Config: ", err));
+const sql = require('mssql');
+const { poolPromise } = require('../config/db.js'); // Sửa db.config thành db
 
 const findAllJobs = async (page, limit, filters) => {
-    await poolConnect; 
+    const pool = await poolPromise;
     
     try {
         const request = pool.request();
@@ -29,13 +27,11 @@ const findAllJobs = async (page, limit, filters) => {
         
         const whereCondition = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // --- Query 1: Lấy tổng số kết quả khớp với bộ lọc ---
         const countQuery = `SELECT COUNT(DISTINCT j.id) as total FROM Jobs j ${whereCondition};`;
         const countResult = await request.query(countQuery);
         const totalJobs = countResult.recordset[0].total;
         const totalPages = Math.ceil(totalJobs / Number(limit));
 
-        // --- Query 2: Lấy dữ liệu của trang hiện tại ---
         const jobsQuery = `
             SELECT 
                 j.id, j.title, j.location, j.salary, j.jobType, j.createdAt,
@@ -60,12 +56,11 @@ const findAllJobs = async (page, limit, filters) => {
         
         const jobsResult = await request.query(jobsQuery);
         
-        // Xử lý dữ liệu trả về để có định dạng chuẩn như Frontend mong muốn
         const jobs = jobsResult.recordset.map(job => ({
             id: job.id,
             title: job.title,
             location: job.location,
-            salary: job.salary, // Cần chuẩn hóa salary này thành object {min, max, unit} sau
+            salary: job.salary,
             jobType: job.jobType,
             postedDate: job.createdAt,
             company: {
@@ -87,7 +82,85 @@ const findAllJobs = async (page, limit, filters) => {
         throw new Error('Lỗi khi truy vấn dữ liệu việc làm từ CSDL.');
     }
 };
+const createJob = async (recruiterId, jobData) => {
+    const { title, description, location, salary, jobType, skills } = jobData;
 
-export default {
+    // Validate dữ liệu đầu vào cơ bản
+    if (!title || !description || !skills || !Array.isArray(skills) || skills.length === 0) {
+        throw new Error('Dữ liệu không hợp lệ: Vui lòng cung cấp đầy đủ Tiêu đề, Mô tả và ít nhất một Kỹ năng.');
+    }
+
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+
+    try {
+        await transaction.begin();
+
+        // Bước 1: Insert vào bảng Jobs và lấy về ID của job vừa tạo
+        const jobRequest = new sql.Request(transaction);
+        jobRequest.input('recruiterId', sql.Int, recruiterId);
+        jobRequest.input('title', sql.NVarChar, title);
+        jobRequest.input('description', sql.NText, description);
+        jobRequest.input('location', sql.NVarChar, location);
+        jobRequest.input('salary', sql.NVarChar, salary);
+        jobRequest.input('jobType', sql.NVarChar, jobType);
+        
+        const jobResult = await jobRequest.query(
+            `INSERT INTO Jobs (recruiterId, title, description, location, salary, jobType)
+             OUTPUT INSERTED.id
+             VALUES (@recruiterId, @title, @description, @location, @salary, @jobType);`
+        );
+        const newJobId = jobResult.recordset[0].id;
+
+        // Bước 2: Xử lý các skills. Với mỗi skill:
+        // - Kiểm tra xem nó đã tồn tại trong bảng Skills chưa.
+        // - Nếu chưa, tạo mới.
+        // - Lấy về ID của skill đó.
+        const skillIds = [];
+        for (const skillName of skills) {
+            const skillRequest = new sql.Request(transaction);
+            skillRequest.input('skillName', sql.NVarChar, skillName.trim());
+            
+            // Dùng MERGE để thực hiện "tìm hoặc tạo mới" trong một câu lệnh, hiệu quả hơn.
+            const skillResult = await skillRequest.query(
+                `MERGE Skills AS target
+                 USING (SELECT @skillName AS name) AS source
+                 ON target.name = source.name
+                 WHEN NOT MATCHED THEN
+                     INSERT (name) VALUES (source.name)
+                 OUTPUT inserted.id;`
+            );
+            skillIds.push(skillResult.recordset[0].id);
+        }
+
+        // Bước 3: Insert các cặp (newJobId, skillId) vào bảng JobSkills
+        const jobSkillsTable = new sql.Table('JobSkills');
+        jobSkillsTable.columns.add('jobId', sql.Int);
+        jobSkillsTable.columns.add('skillId', sql.Int);
+
+        for (const skillId of skillIds) {
+            jobSkillsTable.rows.add(newJobId, skillId);
+        }
+        
+        // Dùng bulk insert để hiệu năng cao nhất
+        const bulkRequest = new sql.Request(transaction);
+        await bulkRequest.bulk(jobSkillsTable);
+
+        // Nếu mọi thứ thành công, commit transaction
+        await transaction.commit();
+
+        // Trả về job đã tạo (bao gồm cả skills)
+        return { id: newJobId, ...jobData };
+
+    } catch (error) {
+        // Nếu có bất kỳ lỗi nào, rollback tất cả thay đổi
+        await transaction.rollback();
+        console.error('SQL Transaction Error in createJob:', error);
+        throw new Error('Lỗi khi lưu tin tuyển dụng vào cơ sở dữ liệu.');
+    }
+};
+
+module.exports = {
     findAllJobs,
+    createJob,
 };

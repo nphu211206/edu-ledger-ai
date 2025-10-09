@@ -1,14 +1,14 @@
-// src/routes/jobs.routes.js
-import express from 'express';
-import jobsController from '../controllers/jobs.controller.js';
+// File: server/routes/jobs.routes.js
+// Sửa lại theo cú pháp CommonJS
+
+const express = require('express');
+const jobsController = require('../controllers/jobs.controller.js');
+const authenticateToken = require('../middleware/authenticateToken');
 
 const router = express.Router();
 
-// CHUẨN REST: GET /api/jobs -> Lấy danh sách tài nguyên
 router.get('/', jobsController.getAllJobs);
+router.post('/', authenticateToken, jobsController.createJob); 
 
-// Chúng ta có thể mở rộng sau này:
-// router.get('/:id', jobsController.getJobById);
-// router.post('/', jobsController.createJob); // Dành cho nhà tuyển dụng
 
-export default router;
+module.exports = router;

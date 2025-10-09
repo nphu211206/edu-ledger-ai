@@ -1,30 +1,198 @@
-// /client/src/pages/RecruiterDashboardPage.jsx
+// File: /client/src/pages/RecruiterDashboardPage.jsx
+// PHIÊN BẢN HOÀN HẢO - TRUNG TÂM CHỈ HUY CỦA NHÀ TUYỂN DỤNG
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// --- ICONS & COMPONENTS (Tái sử dụng để đảm bảo tính nhất quán) ---
-const SearchIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
-const PlusIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>;
-const TrashIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
-const GithubIcon = () => <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21-.15.46-.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>;
+// --- ICONS (Tập trung toàn bộ icon cần thiết vào một nơi) ---
+const SearchIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
+const PlusIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>;
+const TrashIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const GithubIcon = (props) => <svg {...props} viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21-.15.46-.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>;
+const BriefcaseIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
+const UsersIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const EyeIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>;
+const EditIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
+
+// --- COMPONENT TIỆN ÍCH CHUNG ---
 const Spinner = ({ size = 'h-8 w-8' }) => <div className="flex justify-center items-center"><div className={`animate-spin rounded-full border-b-2 border-blue-400 ${size}`}></div></div>;
 const ErrorMessage = ({ message }) => <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg" role="alert"><strong className="font-bold">Lỗi! </strong><span className="block sm:inline">{message}</span></div>;
-const StudentResultCard = ({ student }) => ( <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 transition-all duration-300 hover:border-blue-500 hover:shadow-2xl hover:-translate-y-1"> <div className="flex items-start gap-4"> <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full border-2 border-gray-600" /> <div className="flex-1"> <div className="flex justify-between items-start"> <div> <h3 className="text-lg font-bold text-white">{student.name || student.githubUsername}</h3> <a href={`https://github.com/${student.githubUsername}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-400 hover:underline flex items-center gap-1"> <GithubIcon /> {student.githubUsername} </a> </div> <Link to={`/profile/${student.githubUsername}`} className="bg-gray-700 text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-blue-600 transition"> Xem Hồ sơ </Link> </div> <p className="text-sm text-gray-400 mt-2 line-clamp-2">{student.bio || "Chưa có tiểu sử trên GitHub."}</p> </div> </div> </div> );
-const EmptyState = ({ title, message }) => ( <div className="text-center py-20 px-6 bg-gray-800 rounded-xl border-2 border-dashed border-gray-700"> <h3 className="text-xl font-semibold text-white">{title}</h3> <p className="mt-2 text-gray-400">{message}</p> </div> );
+const EmptyState = ({ icon, title, message, button }) => (
+    <div className="text-center py-20 px-6 bg-gray-800 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center">
+        <div className="text-gray-500 mb-4">{icon}</div>
+        <h3 className="text-xl font-semibold text-white">{title}</h3>
+        <p className="mt-2 text-gray-400 max-w-sm">{message}</p>
+        {button && <div className="mt-6">{button}</div>}
+    </div>
+);
 
-// --- COMPONENT CHÍNH ---
+// --- COMPONENT DÀNH RIÊNG CHO TAB TÌM KIẾM ---
+const StudentResultCard = ({ student }) => (
+    <div className="bg-gray-800 p-5 rounded-xl border border-gray-700 transition-all duration-300 hover:border-blue-500 hover:shadow-2xl hover:-translate-y-1">
+        <div className="flex items-start gap-4">
+            <img src={student.avatarUrl} alt={student.name} className="w-16 h-16 rounded-full border-2 border-gray-600" />
+            <div className="flex-1">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <h3 className="text-lg font-bold text-white">{student.name || student.githubUsername}</h3>
+                        <a href={`https://github.com/${student.githubUsername}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-400 hover:underline flex items-center gap-1">
+                            <GithubIcon className="w-4 h-4" /> {student.githubUsername}
+                        </a>
+                    </div>
+                    <Link to={`/profile/${student.githubUsername}`} className="bg-gray-700 text-white text-xs font-bold py-1 px-3 rounded-full hover:bg-blue-600 transition">
+                        Xem Hồ sơ
+                    </Link>
+                </div>
+                <p className="text-sm text-gray-400 mt-2 line-clamp-2">{student.bio || "Chưa có tiểu sử trên GitHub."}</p>
+            </div>
+        </div>
+    </div>
+);
+
+const SearchTab = ({ onSearch, isSearching, searchError, searchResults }) => {
+    const [searchCriteria, setSearchCriteria] = useState([{ name: '', minScore: '70' }]);
+
+    const handleCriteriaChange = (index, event) => {
+        const values = [...searchCriteria];
+        values[index][event.target.name] = event.target.value;
+        setSearchCriteria(values);
+    };
+    const handleAddCriterion = () => setSearchCriteria([...searchCriteria, { name: '', minScore: '70' }]);
+    const handleRemoveCriterion = (index) => {
+        if (searchCriteria.length <= 1) return;
+        const values = [...searchCriteria];
+        values.splice(index, 1);
+        setSearchCriteria(values);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSearch(searchCriteria);
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <aside className="lg:col-span-4 xl:col-span-3">
+                <div className="sticky top-24 bg-gray-800 p-6 rounded-xl border border-gray-700">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><SearchIcon className="w-6 h-6" /> Tìm kiếm tài năng</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {searchCriteria.map((criterion, index) => (
+                            <div className="flex items-end gap-2" key={index}>
+                                <div className="flex-grow">
+                                    <label className="text-xs text-gray-400">Kỹ năng</label>
+                                    <input type="text" placeholder="VD: React, Node.js" name="name" value={criterion.name} onChange={e => handleCriteriaChange(index, e)} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-400">Điểm &ge;</label>
+                                    <input type="number" name="minScore" value={criterion.minScore} onChange={e => handleCriteriaChange(index, e)} min="0" max="100" className="w-20 mt-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                </div>
+                                <button type="button" onClick={() => handleRemoveCriterion(index)} disabled={searchCriteria.length <= 1} className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <TrashIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        ))}
+                        <button type="button" onClick={handleAddCriterion} className="w-full flex items-center justify-center gap-2 text-sm py-2 text-blue-400 hover:bg-gray-700 rounded-md transition"><PlusIcon className="w-5 h-5" /> Thêm tiêu chí</button>
+                        <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-600 flex justify-center" disabled={isSearching}>{isSearching ? <Spinner size="h-5 w-5" /> : 'Tìm kiếm ứng viên'}</button>
+                    </form>
+                </div>
+            </aside>
+            <main className="lg:col-span-8 xl:col-span-9">
+                {isSearching ? <div className="flex justify-center py-20"><Spinner size="h-12 w-12" /></div>
+                    : searchError ? <ErrorMessage message={searchError} />
+                        : searchResults === null ? <EmptyState icon={<SearchIcon className="w-16 h-16" />} title="Bắt đầu tìm kiếm" message="Sử dụng bộ lọc bên trái để tìm các ứng viên có kỹ năng đã được AI xác thực." />
+                            : searchResults.length === 0 ? <EmptyState icon={<UsersIcon className="w-16 h-16" />} title="Không tìm thấy kết quả" message="Hãy thử điều chỉnh hoặc giảm bớt các tiêu chí tìm kiếm của bạn." />
+                                : (
+                                    <div className="space-y-4">
+                                        <h2 className="text-xl font-bold">Tìm thấy {searchResults.length} ứng viên phù hợp</h2>
+                                        {searchResults.map(student => <StudentResultCard key={student.id} student={student} />)}
+                                    </div>
+                                )}
+            </main>
+        </div>
+    );
+};
+
+// --- COMPONENT DÀNH RIÊNG CHO TAB QUẢN LÝ TIN TUYỂN DỤNG ---
+const JobsManagementTab = () => {
+    // !! LƯU Ý: Dữ liệu này sẽ được lấy từ API trong tương lai
+    const [jobs, setJobs] = useState([
+        { id: 1, title: 'Frontend Developer (ReactJS)', status: 'Active', applicants: 25, views: 120 },
+        { id: 2, title: 'Senior Backend Engineer (Node.js)', status: 'Active', applicants: 12, views: 98 },
+        { id: 3, title: 'UI/UX Designer', status: 'Closed', applicants: 56, views: 350 },
+    ]);
+    const [isLoading, setIsLoading] = useState(false); // Sẽ đổi thành true khi có API
+
+    const renderJobRow = (job) => (
+        <tr key={job.id} className="border-b border-gray-700 hover:bg-gray-800">
+            <td className="p-4 font-bold text-white">{job.title}</td>
+            <td className="p-4">
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${job.status === 'Active' ? 'bg-green-800 text-green-300' : 'bg-gray-600 text-gray-300'}`}>
+                    {job.status}
+                </span>
+            </td>
+            <td className="p-4 text-center">{job.applicants}</td>
+            <td className="p-4 text-center">{job.views}</td>
+            <td className="p-4">
+                <div className="flex items-center justify-center gap-3">
+                    <button className="text-blue-400 hover:text-blue-300"><EyeIcon className="w-5 h-5" /></button>
+                    <button className="text-yellow-400 hover:text-yellow-300"><EditIcon className="w-5 h-5" /></button>
+                    <button className="text-red-500 hover:text-red-400"><TrashIcon className="w-5 h-5" /></button>
+                </div>
+            </td>
+        </tr>
+    );
+
+    if (isLoading) return <Spinner />;
+
+    if (jobs.length === 0) {
+        return <EmptyState 
+            icon={<BriefcaseIcon className="w-16 h-16" />} 
+            title="Bạn chưa đăng tin tuyển dụng nào" 
+            message="Hãy bắt đầu tạo tin tuyển dụng đầu tiên để thu hút những tài năng xuất sắc nhất."
+            button={<Link to="/recruiter/jobs/new" className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition">Đăng tin ngay</Link>}
+        />
+    }
+
+    return (
+        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-400">
+                    <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                        <tr>
+                            <th scope="col" className="p-4">Vị trí</th>
+                            <th scope="col" className="p-4">Trạng thái</th>
+                            <th scope="col" className="p-4 text-center">Ứng viên</th>
+                            <th scope="col" className="p-4 text-center">Lượt xem</th>
+                            <th scope="col" className="p-4 text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {jobs.map(renderJobRow)}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+// --- COMPONENT CHÍNH CỦA TRANG DASHBOARD ---
 
 export default function RecruiterDashboardPage() {
     const [recruiter, setRecruiter] = useState(null);
     const [isLoadingPage, setIsLoadingPage] = useState(true);
-    const [searchCriteria, setSearchCriteria] = useState([{ name: '', minScore: '70' }]);
+    const [activeTab, setActiveTab] = useState('search');
+
+    // State cho tab tìm kiếm
     const [searchResults, setSearchResults] = useState(null);
     const [isSearching, setIsSearching] = useState(false);
     const [searchError, setSearchError] = useState('');
+
     const navigate = useNavigate();
 
+    // Lấy thông tin nhà tuyển dụng khi trang được tải
     useEffect(() => {
         const fetchRecruiterData = async () => {
             const token = localStorage.getItem('token');
@@ -44,25 +212,8 @@ export default function RecruiterDashboardPage() {
         fetchRecruiterData();
     }, [navigate]);
 
-    const handleCriteriaChange = (index, event) => {
-        const values = [...searchCriteria];
-        values[index][event.target.name] = event.target.value;
-        setSearchCriteria(values);
-    };
-
-    const handleAddCriterion = () => {
-        setSearchCriteria([...searchCriteria, { name: '', minScore: '70' }]);
-    };
-
-    const handleRemoveCriterion = (index) => {
-        if (searchCriteria.length <= 1) return;
-        const values = [...searchCriteria];
-        values.splice(index, 1);
-        setSearchCriteria(values);
-    };
-
-    const handleSearch = async (e) => {
-        e.preventDefault();
+    // Hàm xử lý tìm kiếm, được truyền xuống cho SearchTab
+    const handleSearch = useCallback(async (searchCriteria) => {
         setIsSearching(true);
         setSearchResults(null);
         setSearchError('');
@@ -87,64 +238,73 @@ export default function RecruiterDashboardPage() {
         } finally {
             setIsSearching(false);
         }
-    };
+    }, []);
+    
+    // Danh sách các tab và component tương ứng
+    const tabs = useMemo(() => [
+        { id: 'search', label: 'Tìm kiếm Ứng viên', component: <SearchTab onSearch={handleSearch} isSearching={isSearching} searchError={searchError} searchResults={searchResults} /> },
+        { id: 'jobs', label: 'Quản lý Tin tuyển dụng', component: <JobsManagementTab /> },
+        // Thêm các tab khác ở đây trong tương lai
+        // { id: 'applicants', label: 'Hồ sơ Ứng tuyển', component: <ApplicantsTab /> },
+        // { id: 'company', label: 'Hồ sơ Công ty', component: <CompanyProfileTab /> },
+    ], [handleSearch, isSearching, searchError, searchResults]);
 
     if (isLoadingPage) {
         return <div className="min-h-screen bg-gray-900 flex items-center justify-center"><Spinner size="h-12 w-12" /></div>;
     }
 
     return (
-        <div className="bg-gray-900 min-h-screen text-white">
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <h1 className="text-4xl font-bold text-white mb-2">Chào mừng, {recruiter?.name}!</h1>
-                <p className="text-gray-400 mb-10">Đây là trung tâm điều khiển của bạn. Hãy bắt đầu tìm kiếm những tài năng sáng giá nhất.</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <p className="text-3xl font-bold text-blue-400">1,204</p>
-                        <p className="mt-1 text-gray-400">Hồ sơ sinh viên</p>
-                    </div>
-                    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <p className="text-3xl font-bold text-green-400">78</p>
-                        <p className="mt-1 text-gray-400">Lượt tìm kiếm hôm nay</p>
-                    </div>
-                    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-                        <p className="text-3xl font-bold text-purple-400">15</p>
-                        <p className="mt-1 text-gray-400">Hồ sơ đã lưu</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    <aside className="lg:col-span-4 xl:col-span-3">
-                        <div className="sticky top-24 bg-gray-800 p-6 rounded-xl border border-gray-700">
-                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><SearchIcon /> Bộ lọc tìm kiếm</h2>
-                            <form onSubmit={handleSearch} className="space-y-4">
-                                {searchCriteria.map((criterion, index) => (
-                                    <div className="flex items-end gap-2" key={index}>
-                                        <div className="flex-grow">
-                                            <label className="text-xs text-gray-400">Kỹ năng</label>
-                                            <input type="text" placeholder="VD: React, Node.js" name="name" value={criterion.name} onChange={e => handleCriteriaChange(index, e)} className="w-full mt-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-400">Điểm &gt;=</label>
-                                            <input type="number" name="minScore" value={criterion.minScore} onChange={e => handleCriteriaChange(index, e)} min="0" max="100" className="w-20 mt-1 px-2 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                        </div>
-                                        <button type="button" onClick={() => handleRemoveCriterion(index)} disabled={searchCriteria.length <= 1} className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed">
-                                            <TrashIcon />
-                                        </button>
-                                    </div>
-                                ))}
-                                <button type="button" onClick={handleAddCriterion} className="w-full flex items-center justify-center gap-2 text-sm py-2 text-blue-400 hover:bg-gray-700 rounded-md transition"><PlusIcon /> Thêm tiêu chí</button>
-                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition disabled:bg-gray-600 flex justify-center" disabled={isSearching}>{isSearching ? <Spinner size="h-5 w-5" /> : 'Tìm kiếm ứng viên'}</button>
-                            </form>
+        <>
+            <Helmet>
+                <title>Dashboard Nhà tuyển dụng | EduLedger AI</title>
+            </Helmet>
+            <div className="bg-gray-900 min-h-screen text-white">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    
+                    {/* --- HEADER CỦA DASHBOARD --- */}
+                    <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
+                        <div>
+                            <h1 className="text-4xl font-bold text-white mb-2">Chào mừng, {recruiter?.name}!</h1>
+                            <p className="text-gray-400">Đây là trung tâm chỉ huy của bạn để tìm kiếm và quản lý tài năng.</p>
                         </div>
-                    </aside>
+                        <Link to="/recruiter/jobs/new" className="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-700 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg w-full md:w-auto">
+                            <PlusIcon className="w-5 h-5" /> Đăng tin tuyển dụng
+                        </Link>
+                    </div>
 
-                    <main className="lg:col-span-8 xl:col-span-9">
-                        {isSearching ? ( <div className="flex justify-center py-20"><Spinner size="h-12 w-12" /></div> ) : searchError ? ( <ErrorMessage message={searchError} /> ) : searchResults === null ? ( <EmptyState title="Bắt đầu tìm kiếm" message="Sử dụng bộ lọc bên trái để tìm các ứng viên có kỹ năng đã được AI xác thực." /> ) : searchResults.length === 0 ? ( <EmptyState title="Không tìm thấy kết quả" message="Hãy thử điều chỉnh hoặc giảm bớt các tiêu chí tìm kiếm của bạn." /> ) : ( <div className="space-y-4"> <h2 className="text-xl font-bold">Tìm thấy {searchResults.length} ứng viên phù hợp</h2> {searchResults.map(student => ( <StudentResultCard key={student.id} student={student} /> ))} </div> )}
-                    </main>
+                    {/* --- KHUNG TAB ĐIỀU HƯỚNG --- */}
+                    <div className="border-b border-gray-700 mb-8">
+                        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`${
+                                        activeTab === tab.id
+                                            ? 'border-blue-500 text-blue-400'
+                                            : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
+                                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors focus:outline-none`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+
+                    {/* --- NỘI DUNG CỦA TAB HIỆN TẠI --- */}
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={activeTab}
+                            initial={{ y: 10, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: -10, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            {tabs.find(tab => tab.id === activeTab)?.component}
+                        </motion.div>
+                    </AnimatePresence>
                 </div>
             </div>
-        </div>
+        </>
     );
 }

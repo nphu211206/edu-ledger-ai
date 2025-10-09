@@ -6,7 +6,7 @@ import axios from 'axios';
 const api = axios.create({
     // baseURL sẽ tự động được thêm vào trước mỗi request
     // Giúp chúng ta không cần gõ lại 'http://localhost:3000'
-    baseURL: 'http://localhost:3000', 
+    baseURL: 'http://localhost:3800', 
     headers: {
         'Content-Type': 'application/json',
     },
@@ -32,6 +32,27 @@ export const getJobs = async (filters, page) => {
         // Nếu có lỗi từ server (VD: 500), ném lỗi để component có thể bắt và xử lý
         console.error('Lỗi khi gọi API getJobs:', error);
         throw error;
+    }
+};
+export const createJob = async (jobData) => {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Yêu cầu xác thực. Vui lòng đăng nhập lại.');
+        }
+
+        const config = {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        };
+
+        const response = await api.post('/api/jobs', jobData, config);
+        return response.data;
+    } catch (error) {
+        console.error('Lỗi khi gọi API createJob:', error.response?.data || error);
+        // Ném lại lỗi để component có thể bắt và hiển thị
+        throw error.response?.data || error;
     }
 };
 
