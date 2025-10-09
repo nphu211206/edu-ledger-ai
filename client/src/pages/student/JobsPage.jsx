@@ -1,20 +1,68 @@
-// File: client/src/pages/JobsPage.jsx
-// PHIÊN BẢN HOÀN THIỆN - KẾT NỐI VỚI BACKEND
+// src/pages/student/JobsPage.jsx
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 
-// --- THAY ĐỔI 1: IMPORT SERVICE API ---
-import { getJobs } from '../services/api'; 
+// Import components
+import JobsFilter from '../../components/jobs/JobsFilter';
+import JobCard from '../../components/jobs/JobCard';
+import Pagination from '../../components/common/Pagination';
+import Spinner from '../../components/common/Spinner';
 
-// Import các component bạn đã có
-import JobsFilter from '../components/jobs/JobsFilter';
-import JobCard from '../components/jobs/JobCard';
-import Pagination from '../components/common/Pagination';
-import Spinner from '../components/common/Spinner';
+// Giả lập API call - Sẽ thay thế bằng file services/api.js
+// Giả định backend trả về cấu trúc: { jobs: [...], totalPages: number, currentPage: number }
+const fetchJobsFromApi = async (filters, page) => {
+    // Xây dựng query string từ object filters
+    const params = new URLSearchParams({ page, ...filters });
+    Object.keys(filters).forEach(key => {
+        if (!filters[key] || (Array.isArray(filters[key]) && filters[key].length === 0)) {
+            delete params.delete(key);
+        }
+    });
 
-// --- THAY ĐỔI 2: XÓA BỎ HOÀN TOÀN HÀM fetchJobsFromApi GIẢ LẬP ---
+    console.log(`Fetching: /api/jobs?${params.toString()}`);
+    // Trong thực tế, bạn sẽ dùng fetch hoặc axios ở đây
+    // const response = await fetch(`/api/jobs?${params.toString()}`);
+    // if (!response.ok) throw new Error('Không thể tải danh sách việc làm');
+    // return await response.json();
+
+    // Dữ liệu giả lập để test giao diện
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Giả lập độ trễ mạng
+    const mockJobs = [
+        {
+            id: 1,
+            title: 'Frontend Developer (ReactJS)',
+            company: { name: 'TechCorp', logoUrl: 'https://via.placeholder.com/40' },
+            location: 'Hà Nội',
+            salary: { min: 15, max: 25, unit: 'triệu' },
+            jobType: 'Full-time',
+            skills: ['React', 'TypeScript', 'TailwindCSS'],
+            postedDate: '2025-10-08T10:00:00Z',
+        },
+        {
+            id: 2,
+            title: 'Backend Developer (Node.js)',
+            company: { name: 'Server Solutions', logoUrl: 'https://via.placeholder.com/40' },
+            location: 'TP. Hồ Chí Minh',
+            salary: { min: 20, max: 35, unit: 'triệu' },
+            jobType: 'Full-time',
+            skills: ['Node.js', 'Express', 'SQL Server'],
+            postedDate: '2025-10-07T14:30:00Z',
+        },
+        {
+            id: 3,
+            title: 'UI/UX Designer',
+            company: { name: 'Creative Minds', logoUrl: 'https://via.placeholder.com/40' },
+            location: 'Đà Nẵng',
+            salary: { type: 'Thỏa thuận' },
+            jobType: 'Part-time',
+            skills: ['Figma', 'Adobe XD', 'User Research'],
+            postedDate: '2025-10-06T09:00:00Z',
+        }
+    ];
+    return { jobs: mockJobs, totalPages: 5, currentPage: page };
+};
 
 const JobsPage = () => {
     const [jobs, setJobs] = useState([]);
@@ -25,20 +73,20 @@ const JobsPage = () => {
     const [filters, setFilters] = useState({
         keyword: '',
         location: '',
-        jobType: '', // Sửa lại để phù hợp với backend
+        jobType: [],
+        salaryMin: 0,
+        skills: []
     });
 
     const fetchJobs = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
-            // --- THAY ĐỔI 3: GỌI HÀM getJobs TỪ SERVICE API THẬT ---
-            const data = await getJobs(filters, currentPage);
-            
+            const data = await fetchJobsFromApi(filters, currentPage);
             setJobs(data.jobs);
             setTotalPages(data.totalPages);
         } catch (err) {
-            setError('Đã có lỗi xảy ra. Không thể tải danh sách việc làm từ server.');
+            setError(err.message);
         } finally {
             setIsLoading(false);
         }
@@ -50,13 +98,12 @@ const JobsPage = () => {
 
     const handleFilterChange = (newFilters) => {
         setFilters(prev => ({ ...prev, ...newFilters }));
-        setCurrentPage(1);
+        setCurrentPage(1); // Reset về trang 1 khi có filter mới
     };
     
     const handlePageChange = (page) => {
         if (page > 0 && page <= totalPages) {
             setCurrentPage(page);
-            window.scrollTo(0, 0);
         }
     };
     
@@ -66,12 +113,7 @@ const JobsPage = () => {
         }
 
         if (error) {
-            return (
-                <div className="text-center bg-red-50 text-red-700 p-6 rounded-lg">
-                    <h3 className="text-xl font-semibold">Lỗi!</h3>
-                    <p>{error}</p>
-                </div>
-            );
+            return <div className="text-center text-red-500 py-10">{error}</div>;
         }
 
         if (jobs.length === 0) {
