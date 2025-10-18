@@ -1,19 +1,16 @@
-// File: server/index.js
-// PHIÊN BẢN HOÀN THIỆN - ĐÃ CHỈNH SỬA VÀ THỐNG NHẤT
+
 
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { poolPromise } = require('./config/db');
 
-// Thống nhất cú pháp require cho tất cả các routes
+// Import các "nhánh" route theo từng tài nguyên
 const authRoutes = require('./routes/auth.routes');
-const apiRoutes = require('./routes/api.routes');
-const jobRoutes = require('./routes/jobs.routes');
-
+const publicApiRoutes = require('./routes/public.routes'); // <-- "NHÀ" MỚI CHO API CÔNG KHAI
+const userApiRoutes = require('./routes/user.routes');
 const app = express();
 
-// Thống nhất cổng server là 3800, client là 3001
 const allowedOrigins = ['http://localhost:3001']; 
 const corsOptions = {
     origin: function (origin, callback) {
@@ -30,12 +27,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Thống nhất cấu trúc API endpoint
-app.use('/auth', authRoutes);
-app.use('/api', apiRoutes);
-app.use('/api/jobs', jobRoutes); // Endpoint cho việc làm
 
-const PORT = process.env.PORT || 3800; // Đảm bảo server chạy đúng cổng trong .env
+app.use('/auth', authRoutes);                   
+app.use('/api/jobs', jobsRoutes);
+app.use('/api/companies', companiesRoutes);
+app.use('/api/profile', profileRoutes); // Mọi request /api/profile/* sẽ do file này xử lý
+app.use('/api', miscApiRoutes);  // Các API còn lại (public stats, user-specific...)
+
+const PORT = process.env.PORT || 3800;
 
 const startServer = async () => {
     try {

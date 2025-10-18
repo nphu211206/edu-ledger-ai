@@ -1,26 +1,23 @@
 // client/src/pages/DashboardPage.jsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
-
+import { motion, AnimatePresence } from 'framer-motion';
+import { getStudentDashboardData, analyzeRepo } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 // --- CÁC COMPONENT CON ĐỂ TÁI SỬ DỤNG ---
+const UsersIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const BriefcaseIcon = (props) => <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>;
 
 // Component Spinner cho trạng thái loading
-const Spinner = () => (
-    <div className="flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
-    </div>
-);
+const Spinner = ({ size = 'h-8 w-8' }) => <div className="flex justify-center items-center"><div className={`animate-spin rounded-full border-b-2 border-blue-400 ${size}`}></div></div>;
+const EmptyState = ({ icon, title, message }) => ( <div className="text-center py-20 px-6 bg-gray-800 rounded-xl border-2 border-dashed border-gray-700 flex flex-col items-center"><div className="text-gray-500 mb-4">{icon}</div><h3 className="text-xl font-semibold text-white">{title}</h3><p className="mt-2 text-gray-400 max-w-sm">{message}</p></div>);
+
 
 // Component hiển thị thông báo lỗi
-const ErrorMessage = ({ message }) => (
-    <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative" role="alert">
-        <strong className="font-bold">Lỗi! </strong>
-        <span className="block sm:inline">{message}</span>
-    </div>
-);
+const ErrorMessage = ({ message }) => ( <div className="bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative" role="alert"><strong className="font-bold">Lỗi! </strong><span className="block sm:inline">{message}</span></div>);
+
 
 // Component Card thông tin người dùng
 const UserProfileCard = ({ user }) => (
@@ -88,57 +85,119 @@ const AnalysisResultCard = ({ result }) => (
         </div>
     </div>
 );
+const AiAnalysisTab = ({ repos, onAnalyze, analyzingRepoId, analysisResult, analysisError }) => (
+    <div className="space-y-6">
+        {analysisError && <ErrorMessage message={analysisError} />}
+        {analysisResult && <AnalysisResultCard result={analysisResult} />}
+        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <h2 className="text-2xl font-bold mb-2 text-white">Dự án GitHub của bạn</h2>
+            <p className="text-gray-400 mb-6">Chọn một dự án để AI của chúng tôi phân tích và xác thực kỹ năng.</p>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                {repos.length > 0 ? repos.map(repo => (
+                    <div key={repo.id} className="bg-gray-700 p-4 rounded-lg flex flex-col sm:flex-row justify-between sm:items-center transition hover:bg-gray-600 hover:shadow-md">
+                        <div>
+                            <a href={repo.html_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-400 hover:underline">{repo.full_name}</a>
+                            <p className="text-gray-300 text-sm mt-1">{repo.description || "Không có mô tả."}</p>
+                        </div>
+                        <button onClick={() => onAnalyze(repo.full_name, repo.id)} disabled={!!analyzingRepoId} className="mt-3 sm:mt-0 sm:ml-4 bg-blue-600 text-white font-bold py-2 px-5 rounded-lg transition-all duration-300 ease-in-out disabled:bg-gray-500 disabled:cursor-not-allowed hover:bg-blue-700 min-w-[120px]">
+                            {analyzingRepoId === repo.id ? <Spinner size="h-5 w-5"/> : 'Phân tích'}
+                        </button>
+                    </div>
+                )) : (
+                    <p className="text-gray-500 text-center italic">Không tìm thấy dự án nào.</p>
+                )}
+            </div>
+        </div>
+    </div>
+);
+
+// --- COMPONENT TAB 2: HÀNH TRÌNH ỨNG TUYỂN ---
+const ApplicationTrackingTab = ({ applications, isLoading }) => {
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case 'Pending': return 'bg-yellow-800 text-yellow-300';
+            case 'Reviewed': return 'bg-blue-800 text-blue-300';
+            case 'Rejected': return 'bg-red-800 text-red-300';
+            default: return 'bg-gray-600 text-gray-300';
+        }
+    };
+
+    if (isLoading) return <div className="flex justify-center py-20"><Spinner /></div>;
+    
+    if (applications.length === 0) {
+        return <EmptyState icon={<BriefcaseIcon className="w-16 h-16"/>} title="Chưa có hoạt động ứng tuyển" message="Hãy bắt đầu khám phá và ứng tuyển các cơ hội việc làm để theo dõi hành trình của bạn tại đây." />;
+    }
+
+    return (
+        <div className="bg-gray-800 rounded-xl border border-gray-700">
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-400">
+                    <thead className="text-xs text-gray-300 uppercase bg-gray-700">
+                        <tr>
+                            <th scope="col" className="p-4">Vị trí</th>
+                            <th scope="col" className="p-4">Công ty</th>
+                            <th scope="col" className="p-4">Ngày ứng tuyển</th>
+                            <th scope="col" className="p-4 text-center">Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {applications.map(app => (
+                            <tr key={app.jobId} className="border-b border-gray-700 hover:bg-gray-700/50">
+                                <td className="p-4 font-semibold text-white">{app.title}</td>
+                                <td className="p-4">{app.companyName}</td>
+                                <td className="p-4">{new Date(app.appliedAt).toLocaleDateString('vi-VN')}</td>
+                                <td className="p-4 text-center">
+                                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadge(app.status)}`}>
+                                        {app.status}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
 
 
 // --- COMPONENT CHÍNH CỦA TRANG ---
 
 export default function DashboardPage() {
+    const { user: authUser } = useAuth();
+    const [activeTab, setActiveTab] = useState('analysis');
+
+    // State cho toàn bộ dữ liệu trang
     const [user, setUser] = useState(null);
     const [repos, setRepos] = useState([]);
     const [skills, setSkills] = useState([]);
+    const [applications, setApplications] = useState([]);
     
+    // State quản lý trạng thái
     const [isLoadingPage, setIsLoadingPage] = useState(true);
     const [pageError, setPageError] = useState('');
     
+    // State cho chức năng phân tích
     const [analyzingRepoId, setAnalyzingRepoId] = useState(null);
     const [analysisResult, setAnalysisResult] = useState(null);
     const [analysisError, setAnalysisError] = useState('');
 
     const navigate = useNavigate();
 
-    const fetchSkills = useCallback(async (token) => {
-        try {
-            const config = { headers: { 'Authorization': `Bearer ${token}` } };
-            const skillsRes = await axios.get(`http://localhost:3800/api/skills`, config);
-            setSkills(skillsRes.data);
-        } catch (err) {
-            console.error("Không thể tải kỹ năng:", err);
-            // Không set lỗi trang chính, chỉ là một phần phụ
-        }
-    }, []);
 
     useEffect(() => {
-const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/login');
-            return;
-        }
-
+        if (authUser?.role !== 'student') { navigate('/'); return; }
+        
         const fetchInitialData = async () => {
-            setIsLoadingPage(true);
-            setPageError('');
-            const config = { headers: { 'Authorization': `Bearer ${token}` } };
             try {
-                const [userRes, reposRes] = await Promise.all([
-                    axios.get(`http://localhost:3800/api/me`, config),
-                    axios.get(`http://localhost:3800/api/repos`, config)
-                ]);
-                setUser(userRes.data);
-                setRepos(reposRes.data);
-                await fetchSkills(token); // Tải kỹ năng sau khi có thông tin người dùng
+                const data = await getStudentDashboardData();
+                setUser(data.user);
+                setRepos(data.repos);
+                setSkills(data.skills);
+                setApplications(data.applications);
             } catch (err) {
                 setPageError("Không thể tải dữ liệu. Vui lòng đăng nhập lại.");
-                console.error("Lỗi khi lấy dữ liệu:", err);
                 localStorage.removeItem('token');
                 navigate('/login');
             } finally {
@@ -147,54 +206,44 @@ const token = localStorage.getItem('token');
         };
 
         fetchInitialData();
-    }, [navigate, fetchSkills]);
+    }, [navigate, authUser]);
     
-    const handleAnalyzeRepo = async (repoName, repoId) => {
+    // Hàm xử lý phân tích repo
+    const handleAnalyzeRepo = useCallback(async (repoName, repoId) => {
         if (analyzingRepoId) return;
-
         setAnalyzingRepoId(repoId);
         setAnalysisResult(null);
         setAnalysisError('');
-
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.post(
-                `http://localhost:3800/api/analyze-repo`,
-                { repoFullName: repoName }, 
-                { headers: { 'Authorization': `Bearer ${token}` } }
-            );
-            setAnalysisResult(response.data);
-            await fetchSkills(token); // Cập nhật lại biểu đồ kỹ năng
+            const result = await analyzeRepo(repoName);
+            setAnalysisResult(result);
+            // Tải lại skills để cập nhật biểu đồ
+            const updatedSkills = await getStudentDashboardData().then(data => data.skills);
+            setSkills(updatedSkills);
         } catch (error) {
-            console.error(`Lỗi khi phân tích repo ${repoName}:`, error);
-            setAnalysisError(`Phân tích thất bại. ${error.response?.data?.message || 'Vui lòng thử lại.'}`);
+            setAnalysisError(error.message || 'Phân tích thất bại. Vui lòng thử lại.');
         } finally {
             setAnalyzingRepoId(null);
         }
-    };
+    }, [analyzingRepoId]);
 
     if (isLoadingPage) {
-        return (
-            <div className="bg-gray-900 min-h-screen flex items-center justify-center">
-                <Spinner /> <span className="ml-4 text-white">Đang tải hồ sơ năng lực...</span>
-            </div>
-        );
+        return <div className="bg-gray-900 min-h-screen flex items-center justify-center"><Spinner size="h-12 w-12"/> <span className="ml-4 text-white">Đang tải Trung tâm Sự nghiệp...</span></div>;
     }
 
     if (pageError) {
-        return (
-            <div className="bg-gray-900 min-h-screen flex items-center justify-center p-4">
-                <ErrorMessage message={pageError} />
-            </div>
-        );
+        return <div className="bg-gray-900 min-h-screen flex items-center justify-center p-4"><ErrorMessage message={pageError} /></div>;
     }
+    
+    const tabs = [
+        { id: 'analysis', label: 'Tổng quan & Phân tích AI' },
+        { id: 'applications', label: 'Hành trình Ứng tuyển' },
+    ];
 
     return (
         <div className="bg-gray-900 min-h-screen text-white p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-                
-                {/* Cột trái: Thông tin cá nhân & Hồ sơ năng lực */}
-                <aside className="lg:col-span-1 space-y-8">
+                <aside className="lg:col-span-1 space-y-8 sticky top-24 self-start">
                     {user && <UserProfileCard user={user} />}
                     <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
                         <h2 className="text-xl font-semibold mb-4 text-white">Hồ sơ năng lực</h2>
@@ -202,34 +251,22 @@ const token = localStorage.getItem('token');
                     </div>
                 </aside>
 
-                {/* Cột phải: Dự án và Phân tích */}
-                <main className="lg:col-span-2 space-y-6">
-                    {analysisError && <ErrorMessage message={analysisError} />}
-                    {analysisResult && <AnalysisResultCard result={analysisResult} />}
-
-                    <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
-                        <h2 className="text-2xl font-bold mb-2 text-white">Dự án GitHub của bạn</h2>
-                        <p className="text-gray-400 mb-6">Chọn một dự án để AI của chúng tôi phân tích và xác thực kỹ năng.</p>
-                        <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                            {repos.length > 0 ? repos.map(repo => (
-                                <div key={repo.id} className="bg-gray-700 p-4 rounded-lg flex flex-col sm:flex-row justify-between sm:items-center transition hover:bg-gray-600 hover:shadow-md">
-                                    <div>
-                                        <a href={repo.html_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-400 hover:underline">{repo.full_name}</a>
-                                        <p className="text-gray-300 text-sm mt-1">{repo.description || "Không có mô tả."}</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => handleAnalyzeRepo(repo.full_name, repo.id)}
-                                        disabled={!!analyzingRepoId}
-                                        className="mt-3 sm:mt-0 sm:ml-4 bg-blue-600 text-white font-bold py-2 px-5 rounded-lg transition-all duration-300 ease-in-out disabled:bg-gray-500 disabled:cursor-not-allowed hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 min-w-[120px]"
-                                    >
-                                        {analyzingRepoId === repo.id ? <Spinner /> : 'Phân tích'}
-                                    </button>
-                                </div>
-                            )) : (
-                                <p className="text-gray-500 text-center italic">Không tìm thấy dự án nào trên tài khoản GitHub của bạn.</p>
-                            )}
-                        </div>
+                <main className="lg:col-span-2">
+                    <div className="border-b border-gray-700 mb-6">
+                        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                            {tabs.map(tab => (
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`${activeTab === tab.id ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}>
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </nav>
                     </div>
+                    <AnimatePresence mode="wait">
+                        <motion.div key={activeTab} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} transition={{ duration: 0.2 }}>
+                            {activeTab === 'analysis' && <AiAnalysisTab repos={repos} onAnalyze={handleAnalyzeRepo} analyzingRepoId={analyzingRepoId} analysisResult={analysisResult} analysisError={analysisError} />}
+                            {activeTab === 'applications' && <ApplicationTrackingTab applications={applications} isLoading={isLoadingPage} />}
+                        </motion.div>
+                    </AnimatePresence>
                 </main>
             </div>
         </div>

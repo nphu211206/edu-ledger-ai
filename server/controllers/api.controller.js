@@ -3,6 +3,7 @@
 const axios = require('axios');
 const { sql, poolPromise } = require('../config/db');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const jobsService = require('../services/jobs.service');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "models/text-bison-001" });
@@ -119,9 +120,9 @@ exports.searchStudents = async (req, res) => {
 
 // ======================= PHIÊN BẢN AI THEO LỰA CHỌN B ============================
 exports.analyzeRepo = async (req, res) => {
-    if (req.user.role !== 'student') {
-        return res.status(403).json({ message: 'Forbidden' });
-    }
+    //if (req.user.role !== 'student') {
+    //    return res.status(403).json({ message: 'Forbidden' });
+   // }
     const { repoFullName } = req.body;
     const { userId } = req.user;
 
@@ -184,9 +185,7 @@ exports.analyzeRepo = async (req, res) => {
 };
 // =======================================================================================
 exports.getPublicProfile = async (req, res) => {
-    // Lấy username từ URL, ví dụ: /api/profile/nphu211206
     const { username } = req.params;
-
     try {
         const pool = await poolPromise;
 
@@ -203,28 +202,229 @@ exports.getPublicProfile = async (req, res) => {
         const userId = userProfile.id;
 
         // Lấy danh sách kỹ năng đã xác thực của user đó
-        const skillsResult = await pool.request()
-            .input('userId', sql.Int, userId)
-            .query(`
-                SELECT s.name AS skill_name, us.score
-                FROM UserSkills us
-                JOIN Skills s ON us.skillId = s.id
-                WHERE us.userId = @userId
-                ORDER BY us.score DESC;
-            `);
-        
-        // Lấy danh sách các repo public của user đó từ GitHub API
-        const reposResponse = await axios.get(`https://api.github.com/users/${username}/repos?sort=updated&per_page=10`);
+        const [skillsResult, reposResponse, experiencesResult, educationResult] = await Promise.all([
+            // Lấy skills
+            pool.request().input('userId', sql.Int, userId).query(`
+                SELECT s.name AS skill_name, us.score FROM UserSkills us
+                JOIN Skills s ON us.skillId = s.id WHERE us.userId = @userId ORDER BY us.score DESC;
+            `),
+            // Lấy repos từ GitHub
+            axios.get(`https://api.github.com/users/${username}/repos?sort=updated&per_page=10`),
+            // LẤY KINH NGHIỆM LÀM VIỆC
+            pool.request().input('userId', sql.Int, userId).query('SELECT * FROM WorkExperiences WHERE userId = @userId ORDER BY startDate DESC'),
+            // LẤY HỌC VẤN
+            pool.request().input('userId', sql.Int, userId).query('SELECT * FROM Education WHERE userId = @userId ORDER BY startDate DESC')
+        ]);
 
-        // Gộp tất cả dữ liệu và trả về
+        // Gộp tất cả dữ liệu và trả về một gói hoàn chỉnh
         res.status(200).json({
             profile: userProfile,
             skills: skillsResult.recordset,
-            repos: reposResponse.data
+            repos: reposResponse.data,
+            experiences: experiencesResult.recordset, // <-- DỮ LIỆU MỚI
+            education: educationResult.recordset      // <-- DỮ LIỆU MỚI
         });
 
     } catch (error) {
         console.error(`Lỗi khi lấy hồ sơ công khai cho ${username}:`, error);
         res.status(500).json({ message: 'Lỗi máy chủ khi tải hồ sơ.' });
+    }
+};
+exports.getRecruiterStats = async (req, res) => {
+    const { userId, role } = req.user;
+    if (role !== 'recruiter') return res.status(403).json({ message: 'Forbidden' });
+
+    try {
+        const pool = await poolPromise;
+        const request = pool.request().input('recruiterId', sql.Int, userId);
+        
+        // Chạy song song 3 câu query để tối ưu hiệu năng
+        const [studentCountResult, jobCountResult, applicantCountResult] = await Promise.all([
+            pool.request().query("SELECT COUNT(*) as total FROM Users WHERE role = 'student'"),
+            request.query("SELECT COUNT(*) as total FROM Jobs WHERE recruiterId = @recruiterId"),
+            request.query(`
+                SELECT COUNT(ja.id) as total 
+                FROM JobApplications ja
+                JOIN Jobs j ON ja.jobId = j.id
+                WHERE j.recruiterId = @recruiterId
+            `)
+        ]);
+
+        res.status(200).json({
+            totalStudents: studentCountResult.recordset[0].total,
+            postedJobs: jobCountResult.recordset[0].total,
+            totalApplicants: applicantCountResult.recordset[0].total
+        });
+
+    } catch (error) {
+        console.error('Lỗi khi lấy recruiter stats:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi lấy dữ liệu thống kê.' });
+    }
+};
+
+
+// --- HÀM CONTROLLER MỚI 2: LẤY JOBS CỦA NTD ---
+exports.getRecruiterJobs = async (req, res) => {
+    const { userId, role } = req.user;
+    if (role !== 'recruiter') return res.status(403).json({ message: 'Forbidden' });
+    
+    try {
+        // Gọi hàm service đã viết ở bước 2
+        const jobs = await jobsService.findJobsByRecruiter(userId);
+        res.status(200).json(jobs);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách jobs của recruiter:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách tin tuyển dụng.' });
+    }
+};
+
+exports.getPublicStats = async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        
+        const [jobCountResult, companyCountResult, studentCountResult] = await Promise.all([
+            pool.request().query("SELECT COUNT(*) as total FROM Jobs"),
+            pool.request().query("SELECT COUNT(*) as total FROM Users WHERE role = 'recruiter'"),
+            pool.request().query("SELECT COUNT(*) as total FROM Users WHERE role = 'student'")
+        ]);
+
+        res.status(200).json({
+            jobs: jobCountResult.recordset[0].total,
+            companies: companyCountResult.recordset[0].total,
+            students: studentCountResult.recordset[0].total
+        });
+    } catch (error) {
+        console.error('Lỗi khi lấy public stats:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi lấy dữ liệu thống kê.' });
+    }
+};
+exports.getTrendingSkills = async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        
+        // Câu query này đếm số lần xuất hiện của mỗi skill trong bảng JobSkills,
+        // sắp xếp theo thứ tự giảm dần và chỉ lấy top 20 skill hot nhất.
+        const query = `
+            SELECT TOP 20 s.name, COUNT(js.skillId) as frequency
+            FROM JobSkills js
+            JOIN Skills s ON js.skillId = s.id
+            GROUP BY s.name
+            ORDER BY frequency DESC;
+        `;
+
+        const result = await pool.request().query(query);
+        
+        // Chỉ trả về mảng các tên skill
+        const skillNames = result.recordset.map(record => record.name);
+
+        res.status(200).json(skillNames);
+
+    } catch (error) {
+        console.error('Lỗi khi lấy trending skills:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ khi lấy dữ liệu kỹ năng.' });
+    }
+};
+exports.getStudentApplications = async (req, res) => {
+    const { userId, role } = req.user;
+    if (role !== 'student') return res.status(403).json({ message: 'Forbidden' });
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('studentId', sql.Int, userId)
+            .query(`
+                SELECT 
+                    j.id as jobId,
+                    j.title,
+                    u.name as companyName,
+                    ja.status,
+                    ja.appliedAt
+                FROM JobApplications ja
+                JOIN Jobs j ON ja.jobId = j.id
+                JOIN Users u ON j.recruiterId = u.id
+                WHERE ja.studentId = @studentId
+                ORDER BY ja.appliedAt DESC;
+            `);
+        
+        res.status(200).json(result.recordset);
+    } catch (error) {
+        console.error('Lỗi khi lấy danh sách ứng tuyển của sinh viên:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+};
+exports.getApplicantsForJob = async (req, res) => {
+    const { userId, role } = req.user;
+    const { jobId } = req.params;
+    if (role !== 'recruiter') return res.status(403).json({ message: 'Forbidden' });
+
+    try {
+        const pool = await poolPromise;
+        // Kiểm tra xem job này có đúng là của NTD này không
+        const ownerCheck = await pool.request().input('jobId', sql.Int, jobId).input('recruiterId', sql.Int, userId).query('SELECT id FROM Jobs WHERE id = @jobId AND recruiterId = @recruiterId');
+        if (ownerCheck.recordset.length === 0) {
+            return res.status(403).json({ message: 'Không có quyền xem ứng viên của tin này.' });
+        }
+        
+        const result = await pool.request().input('jobId', sql.Int, jobId).query(`
+            SELECT u.id, u.name, u.avatarUrl, u.githubUsername, ja.appliedAt, ja.status
+            FROM JobApplications ja
+            JOIN Users u ON ja.studentId = u.id
+            WHERE ja.jobId = @jobId ORDER BY ja.appliedAt DESC;
+        `);
+        res.status(200).json(result.recordset);
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+};
+exports.getPublicCompanyProfile = async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const pool = await poolPromise;
+
+        // Query 1: Lấy thông tin chi tiết công ty
+        const companyResult = await pool.request()
+            .input('slug', sql.NVarChar, slug)
+            .query('SELECT * FROM Companies WHERE slug = @slug');
+
+        if (companyResult.recordset.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy công ty này.' });
+        }
+        const companyProfile = companyResult.recordset[0];
+
+        // Query 2: Lấy tất cả các job đang hoạt động của công ty đó
+        const jobsResult = await pool.request()
+            .input('companyId', sql.Int, companyProfile.id)
+            .query(`
+                SELECT j.id, j.title, j.location, j.salary, j.jobType, j.createdAt as postedDate
+                FROM Jobs j
+                WHERE j.companyId = @companyId
+                ORDER BY j.createdAt DESC;
+            `);
+        
+        // Gộp dữ liệu và trả về
+        res.status(200).json({
+            profile: companyProfile,
+            jobs: jobsResult.recordset
+        });
+
+    } catch (error) {
+        console.error('Lỗi khi lấy hồ sơ công ty:', error);
+        res.status(500).json({ message: 'Lỗi máy chủ.' });
+    }
+};
+exports.getAllCompanies = async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        // Lấy thông tin công ty và đếm số job đang có
+        const result = await pool.request().query(`
+            SELECT 
+                c.id, c.name, c.slug, c.logoUrl, c.tagline,
+                (SELECT COUNT(j.id) FROM Jobs j WHERE j.companyId = c.id) as jobCount
+            FROM Companies c
+            ORDER BY c.name;
+        `);
+        res.status(200).json(result.recordset);
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi máy chủ.' });
     }
 };

@@ -3,6 +3,7 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sql, poolPromise } = require('../config/db');
+const authService = require('../services/auth.service');
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
@@ -61,27 +62,22 @@ exports.handleGithubCallback = async (req, res) => {
 
 // Hàm này không đổi
 exports.registerRecruiter = async (req, res) => {
-    // ... code cũ của bạn
-    const { email, password, fullName } = req.body;
-    if (!email || !password || !fullName) return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin.' });
+    const { email, password, fullName, companyName } = req.body;
+    
+    if (!email || !password || !fullName || !companyName) {
+        return res.status(400).json({ message: 'Vui lòng điền đầy đủ tất cả các trường.' });
+    }
+
     try {
-        const pool = await poolPromise;
-        const existingUser = await pool.request().input('email', sql.NVarChar, email).query('SELECT id FROM Users WHERE email = @email');
-        if (existingUser.recordset.length > 0) return res.status(409).json({ message: 'Email đã được sử dụng.' });
-
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
-
-        await pool.request()
-            .input('email', sql.NVarChar, email)
-            .input('passwordHash', sql.NVarChar, passwordHash)
-            .input('name', sql.NVarChar, fullName)
-            .query("INSERT INTO Users (email, passwordHash, name, role) VALUES (@email, @passwordHash, @name, 'recruiter')");
-
-        res.status(201).json({ message: 'Tạo tài khoản nhà tuyển dụng thành công!' });
+        // Ủy quyền toàn bộ logic phức tạp cho service
+        await authService.registerRecruiterAndCompany({ fullName, email, password, companyName });
+        res.status(201).json({ message: 'Tạo tài khoản và hồ sơ công ty thành công!' });
     } catch (error) {
-        console.error('Lỗi khi đăng ký recruiter:', error);
-        res.status(500).json({ message: 'Lỗi máy chủ nội bộ.' });
+        // Bắt lỗi từ service và trả về cho client một cách an toàn
+        if (error.message.includes('đã được sử dụng') || error.message.includes('đã tồn tại')) {
+            return res.status(409).json({ message: error.message }); // 409 Conflict
+        }
+        res.status(500).json({ message: 'Lỗi máy chủ nội bộ. Không thể hoàn tất đăng ký.' });
     }
 };
 

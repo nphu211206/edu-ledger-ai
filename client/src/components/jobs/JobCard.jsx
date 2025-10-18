@@ -1,19 +1,17 @@
 // File: client/src/components/jobs/JobCard.jsx
-// HÃY THAY THẾ TOÀN BỘ NỘI DUNG FILE NÀY
+// PHIÊN BẢN TỐI THƯỢNG - SỬA LỖI CÚ PHÁP & TÍCH HỢP PROPS
 
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { MapPin, DollarSign, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { motion } from 'framer-motion';
 
 const formatSalary = (salary) => {
-    if (!salary) return 'Thỏa thuận';
-    if (salary.type === 'Thỏa thuận') return 'Thỏa thuận';
-    if (salary.min && salary.max) return `${salary.min} - ${salary.max} ${salary.unit}`;
-    if (salary.min) return `Từ ${salary.min} ${salary.unit}`;
-    if (salary.max) return `Lên đến ${salary.max} ${salary.unit}`;
-    return 'Thỏa thuận';
+    if (!salary || salary.toLowerCase() === 'thỏa thuận') return 'Thỏa thuận';
+    // Logic phức tạp hơn để xử lý chuỗi lương sẽ được thêm vào trong tương lai
+    return salary;
 };
 
 const cardVariants = {
@@ -21,7 +19,8 @@ const cardVariants = {
     visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100 } }
 };
 
-const JobCard = ({ job }) => {
+// Component nhận onApplyClick và isApplied từ component cha
+export default function JobCard({ job, onApplyClick, isApplied }) {
     const timeAgo = job.postedDate 
         ? formatDistanceToNow(new Date(job.postedDate), { addSuffix: true, locale: vi })
         : 'Không xác định';
@@ -32,7 +31,7 @@ const JobCard = ({ job }) => {
             className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-xl hover:border-blue-400 hover:-translate-y-1 transition-all duration-300 p-6 flex flex-col sm:flex-row items-start gap-6"
         >
             <img 
-                src={job.company.logoUrl} 
+                src={job.company.logoUrl || `https://ui-avatars.com/api/?name=${job.company.name}&background=random`}
                 alt={`${job.company.name} logo`} 
                 className="w-16 h-16 rounded-md object-contain border p-1 flex-shrink-0" 
             />
@@ -41,10 +40,11 @@ const JobCard = ({ job }) => {
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-3">
                     <div>
                         <h2 className="text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors">
-                            <a href={`/jobs/${job.id}`}>{job.title}</a>
+                            <Link to={`/jobs/${job.id}`}>{job.title}</Link>
                         </h2>
-                        <p className="text-md text-gray-600">{job.company.name}</p>
-                    </div>
+<Link to={`/companies/${job.company.slug}`} className="text-md text-gray-600 hover:underline">
+        {job.company.name}
+    </Link>                    </div>
                     <span className="text-xs text-gray-500 mt-2 sm:mt-1 flex items-center flex-shrink-0">
                         <Clock className="h-3.5 w-3.5 mr-1.5"/> {timeAgo}
                     </span>
@@ -76,12 +76,14 @@ const JobCard = ({ job }) => {
             </div>
 
             <div className="w-full sm:w-auto mt-4 sm:mt-0 sm:self-center">
-                <button className="w-full sm:w-auto bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 shadow-sm hover:shadow-md">
-                    Ứng tuyển
+                <button 
+                    onClick={() => onApplyClick(job)}
+                    disabled={isApplied}
+                    className="w-full sm:w-auto bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                    {isApplied ? 'Đã ứng tuyển' : 'Ứng tuyển'}
                 </button>
             </div>
         </motion.div>
     );
 };
-
-export default JobCard;

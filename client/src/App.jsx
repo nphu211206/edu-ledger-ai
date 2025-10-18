@@ -2,7 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import JobsPage from './pages/JobsPage';
-
+import JobDetailPage from './pages/JobDetailPage';
 // Layouts
 import MainLayout from './layouts/MainLayout';
 
@@ -19,7 +19,8 @@ import GitHubCallback from './pages/GitHubCallback';
 import DashboardPage from './pages/DashboardPage';
 import RecruiterDashboardPage from './pages/RecruiterDashboardPage';
 import CreateJobPage from './pages/recruiter/CreateJobPage';
-
+import CompanyProfilePage from './pages/CompanyProfilePage';
+import CompanyListPage from './pages/CompanyListPage';
 
 // Component cho các trang lỗi hoặc chưa tạo
 const NotFoundPage = () => <div className="text-center p-10"><h1>404 - Không tìm thấy trang</h1></div>;
@@ -37,6 +38,9 @@ function App() {
                 <Route path="/auth/github/callback" element={<GitHubCallback />} />
                 <Route path="/login-error" element={<LoginErrorPage />} />
                 <Route path="/jobs" element={<JobsPage />} />
+                <Route path="/jobs/:id" element={<JobDetailPage />} />
+                <Route path="/companies" element={<CompanyListPage />} />
+                <Route path="/companies/:slug" element={<CompanyProfilePage />} />
 
                 {/* --- CÁC ROUTE CẦN ĐĂNG NHẬP (Sẽ có Layout chung) --- */}
                 <Route element={<MainLayout />}>

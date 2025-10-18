@@ -2,8 +2,7 @@
 // Sửa lại theo cú pháp CommonJS
 
 const sql = require('mssql');
-const { poolPromise } = require('../config/db.js'); // Sửa db.config thành db
-
+const { poolPromise } = require('../config/db.js');
 const findAllJobs = async (page, limit, filters) => {
     const pool = await poolPromise;
     
@@ -84,21 +83,29 @@ const findAllJobs = async (page, limit, filters) => {
 };
 const createJob = async (recruiterId, jobData) => {
     const { title, description, location, salary, jobType, skills } = jobData;
-
-    // Validate dữ liệu đầu vào cơ bản
     if (!title || !description || !skills || !Array.isArray(skills) || skills.length === 0) {
         throw new Error('Dữ liệu không hợp lệ: Vui lòng cung cấp đầy đủ Tiêu đề, Mô tả và ít nhất một Kỹ năng.');
     }
-
     const pool = await poolPromise;
     const transaction = new sql.Transaction(pool);
-
     try {
         await transaction.begin();
 
-        // Bước 1: Insert vào bảng Jobs và lấy về ID của job vừa tạo
+        // BƯỚC 1: LẤY companyId VÀ KIỂM TRA "BẤT TỬ"
+        const userCompanyRequest = new sql.Request(transaction);
+        userCompanyRequest.input('recruiterId', sql.Int, recruiterId);
+        const userCompanyResult = await userCompanyRequest.query('SELECT companyId FROM Users WHERE id = @recruiterId');
+        
+        if (userCompanyResult.recordset.length === 0 || !userCompanyResult.recordset[0].companyId) {
+            // ĐÂY CHÍNH LÀ LỚP PHÒNG THỦ NGĂN CHẶN LỖI 500
+            throw new Error('Tài khoản nhà tuyển dụng không hợp lệ hoặc chưa được liên kết với một công ty.');
+        }
+        const companyId = userCompanyResult.recordset[0].companyId;
+
+        // Bước 2: Insert vào bảng Jobs
         const jobRequest = new sql.Request(transaction);
         jobRequest.input('recruiterId', sql.Int, recruiterId);
+        jobRequest.input('companyId', sql.Int, companyId);
         jobRequest.input('title', sql.NVarChar, title);
         jobRequest.input('description', sql.NText, description);
         jobRequest.input('location', sql.NVarChar, location);
@@ -106,61 +113,67 @@ const createJob = async (recruiterId, jobData) => {
         jobRequest.input('jobType', sql.NVarChar, jobType);
         
         const jobResult = await jobRequest.query(
-            `INSERT INTO Jobs (recruiterId, title, description, location, salary, jobType)
-             OUTPUT INSERTED.id
-             VALUES (@recruiterId, @title, @description, @location, @salary, @jobType);`
+            `INSERT INTO Jobs (recruiterId, companyId, title, description, location, salary, jobType) 
+             OUTPUT INSERTED.id 
+             VALUES (@recruiterId, @companyId, @title, @description, @location, @salary, @jobType);`
         );
         const newJobId = jobResult.recordset[0].id;
 
-        // Bước 2: Xử lý các skills. Với mỗi skill:
-        // - Kiểm tra xem nó đã tồn tại trong bảng Skills chưa.
-        // - Nếu chưa, tạo mới.
-        // - Lấy về ID của skill đó.
+        // Bước 3 & 4: Xử lý skills và commit (giữ nguyên logic an toàn)
         const skillIds = [];
         for (const skillName of skills) {
-            const skillRequest = new sql.Request(transaction);
-            skillRequest.input('skillName', sql.NVarChar, skillName.trim());
-            
-            // Dùng MERGE để thực hiện "tìm hoặc tạo mới" trong một câu lệnh, hiệu quả hơn.
-            const skillResult = await skillRequest.query(
-                `MERGE Skills AS target
-                 USING (SELECT @skillName AS name) AS source
-                 ON target.name = source.name
-                 WHEN NOT MATCHED THEN
-                     INSERT (name) VALUES (source.name)
-                 OUTPUT inserted.id;`
-            );
+            const skillRequest = new sql.Request(transaction).input('skillName', sql.NVarChar, skillName.trim());
+            const skillResult = await skillRequest.query(`MERGE Skills AS target USING (SELECT @skillName AS name) AS source ON target.name = source.name WHEN NOT MATCHED THEN INSERT (name) VALUES (source.name) OUTPUT inserted.id;`);
             skillIds.push(skillResult.recordset[0].id);
         }
-
-        // Bước 3: Insert các cặp (newJobId, skillId) vào bảng JobSkills
-        const jobSkillsTable = new sql.Table('JobSkills');
-        jobSkillsTable.columns.add('jobId', sql.Int);
-        jobSkillsTable.columns.add('skillId', sql.Int);
-
         for (const skillId of skillIds) {
-            jobSkillsTable.rows.add(newJobId, skillId);
+            const jobSkillRequest = new sql.Request(transaction).input('jobId', sql.Int, newJobId).input('skillId', sql.Int, skillId);
+            await jobSkillRequest.query('INSERT INTO JobSkills (jobId, skillId) VALUES (@jobId, @skillId)');
         }
-        
-        // Dùng bulk insert để hiệu năng cao nhất
-        const bulkRequest = new sql.Request(transaction);
-        await bulkRequest.bulk(jobSkillsTable);
-
-        // Nếu mọi thứ thành công, commit transaction
         await transaction.commit();
-
-        // Trả về job đã tạo (bao gồm cả skills)
+        
         return { id: newJobId, ...jobData };
 
     } catch (error) {
-        // Nếu có bất kỳ lỗi nào, rollback tất cả thay đổi
         await transaction.rollback();
         console.error('SQL Transaction Error in createJob:', error);
-        throw new Error('Lỗi khi lưu tin tuyển dụng vào cơ sở dữ liệu.');
+        // Ném lại lỗi với thông điệp rõ ràng hơn cho controller
+        throw new Error(error.message || 'Lỗi khi lưu tin tuyển dụng vào cơ sở dữ liệu.');
+    }
+};
+const findJobsByRecruiter = async (recruiterId) => {
+    try {
+        const pool = await poolPromise;
+        const request = pool.request();
+        request.input('recruiterId', sql.Int, recruiterId);
+
+        // Câu query này sẽ JOIN với bảng JobApplications để đếm số ứng viên (applicants)
+        const query = `
+            SELECT 
+                j.id,
+                j.title,
+                j.createdAt,
+                j.jobType,
+                (SELECT COUNT(*) FROM JobApplications ja WHERE ja.jobId = j.id) AS applicants,
+                'Active' AS status -- Tạm thời hardcode, sau này sẽ phát triển thêm
+            FROM Jobs j
+            WHERE j.recruiterId = @recruiterId
+            ORDER BY j.createdAt DESC;
+        `;
+
+        const result = await request.query(query);
+        return result.recordset;
+
+    } catch (error) {
+        console.error('SQL error in findJobsByRecruiter:', error);
+        throw new Error('Lỗi khi truy vấn tin tuyển dụng của bạn từ CSDL.');
     }
 };
 
 module.exports = {
     findAllJobs,
+    findJobById,
     createJob,
+    findJobsByRecruiter,
+    createApplication,
 };

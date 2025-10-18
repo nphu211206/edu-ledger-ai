@@ -1,0 +1,54 @@
+/* File: client/src/components/LiveSkillFeed.css */
+
+.skill-feed-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    padding: 1rem 0;
+    /* Hiệu ứng gradient mờ ở hai bên để tạo chiều sâu */
+    -webkit-mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 20%, black 80%, transparent);
+}
+
+.skill-feed-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 60s linear infinite; /* Điều chỉnh tốc độ tổng thể ở đây */
+}
+
+.skill-feed-container:hover .skill-feed-track {
+    animation-play-state: paused; /* Dừng lại khi người dùng di chuột vào */
+}
+
+.skill-tag {
+    flex-shrink: 0;
+    padding: 0.5rem 1.5rem;
+    margin: 0 1rem;
+    background: rgba(30, 41, 59, 0.5); /* Màu nền bán trong suốt */
+    color: #94a3b8; /* text-slate-400 */
+    border: 1px solid #334155; /* border-slate-700 */
+    border-radius: 9999px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.skill-tag:hover {
+    background: #1e40af; /* bg-blue-800 */
+    color: #eff6ff; /* text-blue-50 */
+    border-color: #3b82f6; /* border-blue-500 */
+    transform: scale(1.1);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+}
+
+/* Định nghĩa animation cho dòng chảy */
+@keyframes marquee {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        /* Dịch chuyển sang trái đúng bằng một nửa chiều rộng của track */
+        transform: translateX(-50%);
+    }
+}

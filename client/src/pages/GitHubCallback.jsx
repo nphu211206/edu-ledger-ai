@@ -1,28 +1,32 @@
-// client/src/pages/GitHubCallback.jsx
-import React, { useEffect } from 'react';
+// File: client/src/pages/GitHubCallback.jsx
+// PHIÊN BẢN SỬA LỖI RACE CONDITION
+
+import React, { useEffect, useContext } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 
 const GitHubCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { login } = useContext(AuthContext); // Lấy hàm login từ context
 
   useEffect(() => {
-    // Lấy token từ URL, ví dụ: ?token=abcxyz
     const token = searchParams.get('token');
-
     if (token) {
-      // Lưu token vào Local Storage để sử dụng cho các API call sau này
-      localStorage.setItem('token', token);
-      // Đăng nhập thành công, chuyển hướng người dùng đến trang Dashboard
+      login(token); // <-- SỬ DỤNG HÀM LOGIN
       navigate('/dashboard'); 
     } else {
-      // Nếu không có token, báo lỗi và chuyển về trang đăng nhập
       navigate('/login-error');
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, login]);
 
-  // Hiển thị một thông báo tạm thời trong khi xử lý
-  return <div>Đang xử lý đăng nhập...</div>;
+
+  return (
+    <div className="bg-gray-900 min-h-screen flex flex-col items-center justify-center text-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div>
+        <p className="mt-4 text-lg">Đang xác thực và chuyển hướng...</p>
+    </div>
+  );
 };
 
 export default GitHubCallback;

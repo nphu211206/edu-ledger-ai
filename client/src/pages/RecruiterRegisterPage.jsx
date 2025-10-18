@@ -53,6 +53,7 @@ const Alert = ({ message, type }) => {
 export default function RecruiterRegisterPage() {
     const [formData, setFormData] = useState({
         fullName: '',
+        companyName: '',
         email: '',
         password: '',
         confirmPassword: ''
@@ -65,44 +66,32 @@ export default function RecruiterRegisterPage() {
     
     const navigate = useNavigate();
 
-    // Hàm validate cho từng trường
     const validateField = (name, value) => {
         switch (name) {
-            case 'fullName':
-                return value.trim() ? '' : 'Họ và tên là bắt buộc.';
-            case 'email':
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                return emailRegex.test(value) ? '' : 'Email không hợp lệ.';
-            case 'password':
-                return value.length >= 6 ? '' : 'Mật khẩu phải có ít nhất 6 ký tự.';
-            case 'confirmPassword':
-                return value === formData.password ? '' : 'Mật khẩu xác nhận không khớp.';
-            default:
-                return '';
+            case 'fullName': return value.trim() ? '' : 'Họ và tên là bắt buộc.';
+            case 'companyName': return value.trim() ? '' : 'Tên công ty là bắt buộc.'; // <-- VALIDATION MỚI
+            case 'email': return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? '' : 'Email không hợp lệ.';
+            case 'password': return value.length >= 6 ? '' : 'Mật khẩu phải có ít nhất 6 ký tự.';
+            case 'confirmPassword': return value === formData.password ? '' : 'Mật khẩu xác nhận không khớp.';
+            default: return '';
         }
     };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
-        // Xóa lỗi của trường đang nhập
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
-        }
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
     };
 
     const handleBlur = (e) => {
         const { name, value } = e.target;
-        const error = validateField(name, value);
-        setErrors(prev => ({ ...prev, [name]: error }));
+        setErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setApiError('');
-        setApiSuccess('');
+        setApiError(''); setApiSuccess('');
 
-        // Validate toàn bộ form trước khi gửi
         const formErrors = Object.keys(formData).reduce((acc, key) => {
             const error = validateField(key, formData[key]);
             if (error) acc[key] = error;
@@ -116,17 +105,19 @@ export default function RecruiterRegisterPage() {
 
         setIsLoading(true);
         try {
+            // Gửi đầy đủ dữ liệu lên backend
             await axios.post(`http://localhost:3800/auth/recruiter/register`, {
                 fullName: formData.fullName,
+                companyName: formData.companyName,
                 email: formData.email,
                 password: formData.password
             });
             
             setApiSuccess('Đăng ký thành công! Đang chuyển đến trang đăng nhập...');
-            setTimeout(() => navigate('/recruiter/login'), 3000);
+            setTimeout(() => navigate('/recruiter/login'), 2000);
 
         } catch (err) {
-            const message = err.response?.data?.message || 'Đã có lỗi không xác định xảy ra. Vui lòng thử lại.';
+            const message = err.response?.data?.message || 'Đã có lỗi không xác định xảy ra.';
             setApiError(message);
         } finally {
             setIsLoading(false);
@@ -146,65 +137,21 @@ export default function RecruiterRegisterPage() {
                         </Link>
                     </p>
 
-                    <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+                    <form onSubmit={handleSubmit} className="mt-8 space-y-4">
                         {apiError && <Alert message={apiError} type="error" />}
                         {apiSuccess && <Alert message={apiSuccess} type="success" />}
 
-                        <FormInput
-                            id="fullName"
-                            name="fullName"
-                            type="text"
-                            label="Họ và Tên"
-                            placeholder="Nguyễn Văn A"
-                            value={formData.fullName}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            error={errors.fullName}
-                            required
-                        />
-                        <FormInput
-                            id="email"
-                            name="email"
-                            type="email"
-                            label="Email Công ty"
-                            placeholder="your.email@company.com"
-                            value={formData.email}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            error={errors.email}
-                            required
-                        />
-                        <FormInput
-                            id="password"
-                            name="password"
-                            type="password"
-                            label="Mật khẩu"
-                            placeholder="••••••••"
-                            value={formData.password}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            error={errors.password}
-                            required
-                        />
-                        <FormInput
-                            id="confirmPassword"
-                            name="confirmPassword"
-                            type="password"
-                            label="Xác nhận Mật khẩu"
-                            placeholder="••••••••"
-                            value={formData.confirmPassword}
-                            onChange={handleChange}
-                            onBlur={handleBlur}
-                            error={errors.confirmPassword}
-                            required
-                        />
+                        <FormInput id="fullName" name="fullName" type="text" label="Họ và Tên" placeholder="Nguyễn Văn A" value={formData.fullName} onChange={handleChange} onBlur={handleBlur} error={errors.fullName} required />
+                        
+                        {/* --- TRƯỜNG MỚI CHO TÊN CÔNG TY --- */}
+                        <FormInput id="companyName" name="companyName" type="text" label="Tên Công ty" placeholder="Công ty Cổ phần ABC" value={formData.companyName} onChange={handleChange} onBlur={handleBlur} error={errors.companyName} required />
+                        
+                        <FormInput id="email" name="email" type="email" label="Email Công ty" placeholder="your.email@company.com" value={formData.email} onChange={handleChange} onBlur={handleBlur} error={errors.email} required />
+                        <FormInput id="password" name="password" type="password" label="Mật khẩu" placeholder="••••••••" value={formData.password} onChange={handleChange} onBlur={handleBlur} error={errors.password} required />
+                        <FormInput id="confirmPassword" name="confirmPassword" type="password" label="Xác nhận Mật khẩu" placeholder="••••••••" value={formData.confirmPassword} onChange={handleChange} onBlur={handleBlur} error={errors.confirmPassword} required />
 
-                        <div>
-                            <button 
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                            >
+                        <div className="pt-2">
+                            <button type="submit" disabled={isLoading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-500 disabled:cursor-not-allowed">
                                 {isLoading ? <Spinner /> : 'Tạo tài khoản'}
                             </button>
                         </div>
