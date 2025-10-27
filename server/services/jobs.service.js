@@ -111,11 +111,13 @@ const createJob = async (recruiterId, jobData) => {
         userCompanyRequest.input('recruiterId', sql.Int, recruiterId);
         const userCompanyResult = await userCompanyRequest.query('SELECT companyId FROM Users WHERE id = @recruiterId');
         
+        
         if (userCompanyResult.recordset.length === 0 || !userCompanyResult.recordset[0].companyId) {
             // ĐÂY CHÍNH LÀ LỚP PHÒNG THỦ NGĂN CHẶN LỖI 500
             throw new Error('Tài khoản nhà tuyển dụng không hợp lệ hoặc chưa được liên kết với một công ty.');
         }
         const companyId = userCompanyResult.recordset[0].companyId;
+        console.log(`[createJob] Recruiter ID: ${recruiterId}, Found Company ID: ${companyId}`); // <-- THÊM LOG NÀY
 
         const jobRequest = new sql.Request(transaction);
         jobRequest.input('recruiterId', sql.Int, recruiterId);
