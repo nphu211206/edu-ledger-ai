@@ -6,6 +6,7 @@ const router = express.Router();
 const apiController = require('../controllers/api.controller'); 
 const jobsController = require('../controllers/jobs.controller');
 const authenticateToken = require('../middleware/authenticateToken');
+const applicationsController = require('../controllers/applications.controller'); 
 
 // "NGƯỜI GÁC CỔNG" BẢO VỆ TOÀN BỘ CÁC ROUTE BÊN DƯỚI
 router.use(authenticateToken);
@@ -22,7 +23,7 @@ router.post('/recruiter/search', apiController.searchStudents);
 router.get('/recruiter/stats', apiController.getRecruiterStats);
 router.get('/recruiter/jobs', apiController.getRecruiterJobs);
 router.get('/jobs/:jobId/applicants', apiController.getApplicantsForJob);
-
+router.patch('/applications/:applicationId/status', applicationsController.updateApplicationStatus);
 // ======================================================================
 // === CÁNH CỔNG BỊ LÃNG QUÊN ĐÃ ĐƯỢC KIẾN TẠO LẠI ĐÚNG CHỖ ===
 router.post('/jobs', jobsController.createJob); 

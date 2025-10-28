@@ -1,4 +1,5 @@
 // client/src/pages/DashboardPage.jsx
+// ĐÃ SỬA LỖI KEY PROP (DÒNG 170) - Khôi phục lại logic cập nhật skills cục bộ
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -123,7 +124,7 @@ const ApplicationTrackingTab = ({ applications, isLoading }) => {
     };
 
     if (isLoading) return <div className="flex justify-center py-20"><Spinner /></div>;
-    
+
     if (applications.length === 0) {
         return <EmptyState icon={<BriefcaseIcon className="w-16 h-16"/>} title="Chưa có hoạt động ứng tuyển" message="Hãy bắt đầu khám phá và ứng tuyển các cơ hội việc làm để theo dõi hành trình của bạn tại đây." />;
     }
@@ -142,7 +143,7 @@ const ApplicationTrackingTab = ({ applications, isLoading }) => {
                     </thead>
                     <tbody>
                         {applications.map(app => (
-                            <tr key={app.jobId} className="border-b border-gray-700 hover:bg-gray-700/50">
+                            <tr key={app.id} className="border-b border-gray-700 hover:bg-gray-700/50"> {/* Key đã sửa */}
                                 <td className="p-4 font-semibold text-white">{app.title}</td>
                                 <td className="p-4">{app.companyName}</td>
                                 <td className="p-4">{new Date(app.appliedAt).toLocaleDateString('vi-VN')}</td>
@@ -171,13 +172,13 @@ export default function DashboardPage() {
     // State cho toàn bộ dữ liệu trang
     const [user, setUser] = useState(null);
     const [repos, setRepos] = useState([]);
-    const [skills, setSkills] = useState([]);
+    const [skills, setSkills] = useState([]); // State skills cục bộ của Dashboard
     const [applications, setApplications] = useState([]);
-    
+
     // State quản lý trạng thái
     const [isLoadingPage, setIsLoadingPage] = useState(true);
     const [pageError, setPageError] = useState('');
-    
+
     // State cho chức năng phân tích
     const [analyzingRepoId, setAnalyzingRepoId] = useState(null);
     const [analysisResult, setAnalysisResult] = useState(null);
@@ -187,45 +188,72 @@ export default function DashboardPage() {
 
 
     useEffect(() => {
-        if (authUser?.role !== 'student') { navigate('/'); return; }
-        
-        const fetchInitialData = async () => {
-            try {
-                const data = await getStudentDashboardData();
-                setUser(data.user);
-                setRepos(data.repos);
-                setSkills(data.skills);
-                setApplications(data.applications);
-            } catch (err) {
-                setPageError("Không thể tải dữ liệu. Vui lòng đăng nhập lại.");
-                localStorage.removeItem('token');
-                navigate('/login');
-            } finally {
-                setIsLoadingPage(false);
-            }
-        };
+        // Chuyển hướng nếu không phải student
+        if (authUser && authUser.role !== 'student') {
+             console.warn("[DashboardPage] Non-student user detected, redirecting.");
+             navigate('/');
+             return; // Dừng effect
+        }
+        // Chỉ fetch khi authUser là student
+        if (authUser && authUser.role === 'student') {
+            const fetchInitialData = async () => {
+                try {
+                    console.log("[DashboardPage] Fetching initial dashboard data for student...");
+                    const data = await getStudentDashboardData();
+                    setUser(data.user);
+                    setRepos(data.repos);
+                    setSkills(data.skills); // Cập nhật state skills cục bộ
+                    setApplications(data.applications);
+                    console.log("[DashboardPage] Initial data fetched successfully:", data);
+                } catch (err) {
+                    console.error("[DashboardPage] Error fetching initial data:", err);
+                    setPageError("Không thể tải dữ liệu Dashboard. Vui lòng thử đăng nhập lại.");
+                    // Cân nhắc logout hoặc xử lý lỗi khác
+                    // localStorage.removeItem('token');
+                    // navigate('/login');
+                } finally {
+                    setIsLoadingPage(false);
+                }
+            };
+            fetchInitialData();
+        } else if (!authUser && localStorage.getItem('token')) {
+            // Nếu có token nhưng authUser chưa load, chờ hoặc xử lý
+            console.log("[DashboardPage] Waiting for authUser load...");
+            // Có thể tạm thời không làm gì và chờ useEffect chạy lại khi authUser cập nhật
+        } else if (!authUser) {
+             console.warn("[DashboardPage] No authenticated user, redirecting to login.");
+             navigate('/login'); // Chuyển hướng nếu chưa đăng nhập
+        }
+    }, [navigate, authUser]); // Phụ thuộc authUser để fetch đúng lúc
 
-        fetchInitialData();
-    }, [navigate, authUser]);
-    
-    // Hàm xử lý phân tích repo
+    // Hàm xử lý phân tích repo (KHÔI PHỤC LOGIC CẬP NHẬT SKILLS CỤC BỘ)
     const handleAnalyzeRepo = useCallback(async (repoName, repoId) => {
         if (analyzingRepoId) return;
         setAnalyzingRepoId(repoId);
         setAnalysisResult(null);
         setAnalysisError('');
         try {
+            console.log(`[DashboardPage] Calling analyzeRepo for: ${repoName}`);
             const result = await analyzeRepo(repoName);
             setAnalysisResult(result);
-            // Tải lại skills để cập nhật biểu đồ
-            const updatedSkills = await getStudentDashboardData().then(data => data.skills);
-            setSkills(updatedSkills);
+            console.log(`[DashboardPage] Analysis successful for ${repoName}. Refreshing skills...`);
+            // Tải lại skills để cập nhật biểu đồ cục bộ trên Dashboard
+            try {
+                const updatedSkillsData = await getStudentDashboardData(); // Gọi lại API dashboard để lấy skills mới
+                setSkills(updatedSkillsData.skills || []); // Cập nhật state skills cục bộ
+                 console.log("[DashboardPage] Local skills state updated after analysis.");
+            } catch (skillFetchError) {
+                 console.error("[DashboardPage] Failed to refresh skills after analysis:", skillFetchError);
+                 // Có thể thông báo lỗi nhỏ nếu cần, nhưng không làm crash trang
+                 setAnalysisError("Phân tích thành công, nhưng không thể cập nhật biểu đồ kỹ năng ngay lập tức.");
+            }
         } catch (error) {
+            console.error(`[DashboardPage] Error analyzing ${repoName}:`, error);
             setAnalysisError(error.message || 'Phân tích thất bại. Vui lòng thử lại.');
         } finally {
             setAnalyzingRepoId(null);
         }
-    }, [analyzingRepoId]);
+    }, [analyzingRepoId]); // Phụ thuộc analyzingRepoId
 
     if (isLoadingPage) {
         return <div className="bg-gray-900 min-h-screen flex items-center justify-center"><Spinner size="h-12 w-12"/> <span className="ml-4 text-white">Đang tải Trung tâm Sự nghiệp...</span></div>;
@@ -234,7 +262,15 @@ export default function DashboardPage() {
     if (pageError) {
         return <div className="bg-gray-900 min-h-screen flex items-center justify-center p-4"><ErrorMessage message={pageError} /></div>;
     }
-    
+
+    // Kiểm tra lại user sau khi loading xong, phòng trường hợp edge case
+    if (!user) {
+         console.error("[DashboardPage] User data is null after loading, redirecting.");
+         // Có thể hiển thị thông báo lỗi ngắn trước khi redirect
+         // Hoặc dựa vào logic trong useEffect để redirect
+         return <div className="bg-gray-900 min-h-screen flex items-center justify-center p-4"><ErrorMessage message="Dữ liệu người dùng không hợp lệ. Đang chuyển hướng..." /></div>;
+    }
+
     const tabs = [
         { id: 'analysis', label: 'Tổng quan & Phân tích AI' },
         { id: 'applications', label: 'Hành trình Ứng tuyển' },
@@ -244,9 +280,11 @@ export default function DashboardPage() {
         <div className="bg-gray-900 min-h-screen text-white p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <aside className="lg:col-span-1 space-y-8 sticky top-24 self-start">
+                    {/* UserProfileCard dùng state `user` */}
                     {user && <UserProfileCard user={user} />}
                     <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
                         <h2 className="text-xl font-semibold mb-4 text-white">Hồ sơ năng lực</h2>
+                        {/* SkillsRadarChart dùng state `skills` cục bộ */}
                         <SkillsRadarChart skills={skills} />
                     </div>
                 </aside>
@@ -263,7 +301,9 @@ export default function DashboardPage() {
                     </div>
                     <AnimatePresence mode="wait">
                         <motion.div key={activeTab} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }} transition={{ duration: 0.2 }}>
+                            {/* AiAnalysisTab dùng state `repos` và kết quả analysis */}
                             {activeTab === 'analysis' && <AiAnalysisTab repos={repos} onAnalyze={handleAnalyzeRepo} analyzingRepoId={analyzingRepoId} analysisResult={analysisResult} analysisError={analysisError} />}
+                            {/* ApplicationTrackingTab dùng state `applications` */}
                             {activeTab === 'applications' && <ApplicationTrackingTab applications={applications} isLoading={isLoadingPage} />}
                         </motion.div>
                     </AnimatePresence>

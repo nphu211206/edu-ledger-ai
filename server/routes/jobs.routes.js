@@ -1,22 +1,34 @@
 // File: server/routes/jobs.routes.js
-// PHIÊN BẢN HỢP NHẤT - "TẤT CẢ TRONG MỘT"
+// PHIÊN BẢN TỐI THƯỢNG - Đầy đủ CRUD (Protected)
 
 const express = require('express');
 const router = express.Router();
-const jobsController = require('../controllers/jobs.controller.js');
-const authenticateToken = require('../middleware/authenticateToken.js');
+const jobsController = require('../controllers/jobs.controller.js'); // Import controller đã cập nhật
+const authenticateToken = require('../middleware/authenticateToken.js'); // Middleware xác thực
 
-// === CÁC ROUTE CÔNG KHAI (KHÔNG CẦN TOKEN) ===
-router.get('/', jobsController.getAllJobs);       // Lấy danh sách việc làm
-router.get('/:id', jobsController.getJobById);   // Lấy chi tiết một việc làm
+// --- CÁC ROUTE CÔNG KHAI (ĐÃ CHUYỂN SANG publicApiRoutes) ---
+// router.get('/', jobsController.getAllJobs); // Không dùng ở đây nữa
+// router.get('/:id', jobsController.getJobById); // Không dùng ở đây nữa
 
-// === CÁC ROUTE ĐƯỢC BẢO VỆ (CẦN TOKEN) ===
-// Chỉ những route này mới đi qua "người gác cổng" authenticateToken
+// --- CÁC ROUTE YÊU CẦU XÁC THỰC ---
+// Áp dụng middleware xác thực cho tất cả các route bên dưới
+router.use(authenticateToken);
 
-// Route tạo Job mới (chỉ dành cho NTD đã đăng nhập)
-router.post('/', authenticateToken, jobsController.createJob);
+// POST /api/jobs -> Tạo Job mới (chỉ Recruiter)
+router.post('/', jobsController.createJob);
 
-// Route ứng tuyển (chỉ dành cho Sinh viên đã đăng nhập)
-router.post('/:jobId/apply', authenticateToken, jobsController.applyToJob);
+// POST /api/jobs/:jobId/apply -> Sinh viên ứng tuyển
+router.post('/:jobId/apply', jobsController.applyToJob);
+
+// PUT /api/jobs/:id -> Cập nhật Job (chỉ Recruiter owner)
+router.put('/:id', jobsController.updateJob);
+
+// PATCH /api/jobs/:id/status -> Thay đổi trạng thái Job (chỉ Recruiter owner)
+router.patch('/:id/status', jobsController.changeJobStatus);
+
+// DELETE /api/jobs/:id -> Xóa Job (chỉ Recruiter owner)
+router.delete('/:id', jobsController.deleteJob);
 
 module.exports = router;
+
+console.log("✅ jobs.routes.js (Tối Thượng - CRUD Protected v1.0) loaded.");

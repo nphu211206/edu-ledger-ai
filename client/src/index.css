@@ -1,110 +1,155 @@
-/* client/src/index.css */
+/**
+ * File: client/src/index.css
+ * Base styles and TailwindCSS imports for EduLedger AI Client (Tối Thượng)
+ */
 
-/* Nhập khẩu 3 lớp tiện ích cốt lõi của Tailwind. 
-  Bắt buộc phải có và đúng thứ tự.
-*/
+/* 1. Import TailwindCSS base styles, components, and utilities. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Thêm một vài style mặc định cho toàn bộ trang web 
-  để có một khởi đầu đẹp mắt hơn.
-*/
-body {
-  background-color: #0D1117; /* Sử dụng màu 'dark-bg' đã định nghĩa */
-  color: #E6EDF3;           /* Sử dụng màu 'text-primary' */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  position: relative;
-  overflow-x: hidden;
-}
-.auth-container::before,
-.auth-container::after {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  filter: blur(100px);
-  -webkit-filter: blur(100px);
-  border-radius: 50%;
-}
-
-.auth-container::before {
-  width: 300px;
-  height: 300px;
-  background-color: rgba(59, 130, 246, 0.2); /* Màu xanh blue nhạt */
-  top: -50px;
-  left: -100px;
-  animation: pulse 10s infinite alternate;
-}
-
-.auth-container::after {
-  width: 400px;
-  height: 400px;
-  background-color: rgba(168, 85, 247, 0.2); /* Màu tím purple nhạt */
-  bottom: -100px;
-  right: -150px;
-  animation: pulse 12s infinite alternate-reverse;
-}
-
-@keyframes pulse {
-  from {
-    transform: scale(0.8);
-  }
-  to {
-    transform: scale(1.2);
-  }
-}
-.custom-marker-container {
-    background: transparent;
-    border: none;
-}
-
-.custom-marker {
-    position: relative;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.custom-marker .dot {
-    width: 12px;
-    height: 12px;
-    background-color: #3b82f6; /* bg-blue-500 */
-    border-radius: 50%;
-    border: 2px solid white;
-    transition: all 0.3s ease;
-    z-index: 1;
-}
-
-.custom-marker .pulse {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background-color: rgba(59, 130, 246, 0.5);
-    position: absolute;
-    animation: pulse-animation 2s infinite;
-    z-index: 0;
-}
-
-/* Hiệu ứng khi được hover */
-.custom-marker.hovered .dot, .custom-marker:hover .dot {
-    transform: scale(1.5);
-    background-color: #8b5cf6; /* bg-purple-500 */
-}
-.custom-marker.hovered .pulse, .custom-marker:hover .pulse {
-    animation: pulse-animation 1s infinite;
-    background-color: rgba(139, 92, 246, 0.5);
-}
-
-@keyframes pulse-animation {
-    0% {
-        transform: scale(0.1);
-        opacity: 0.8;
+/* 2. Custom Base Styles */
+@layer base {
+    html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        scroll-behavior: smooth;
+        /* Consider adding default font family here if needed */
+        /* font-family: 'Your Chosen Font', sans-serif; */
     }
-    100% {
-        transform: scale(1);
-        opacity: 0;
+
+    body {
+        @apply bg-gray-900 text-gray-200; /* Dark background, light text */
+        min-height: 100vh;
+        overflow-x: hidden;
+        position: relative;
     }
+
+    /* Default link styling */
+    a {
+      @apply text-blue-400 hover:text-blue-300 transition-colors duration-200 ease-in-out;
+      /* Remove underline by default if preferred, add specific underline utilities where needed */
+      /* text-decoration: none; */
+    }
+
+    /* Consistent focus styles for accessibility */
+    *:focus-visible {
+         @apply outline-none ring-2 ring-offset-2 ring-blue-500 ring-offset-gray-900 rounded-sm;
+    }
+
+    /* Style scrollbars (optional, for aesthetics - Webkit browsers) */
+    ::-webkit-scrollbar {
+         width: 8px;
+         height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+         @apply bg-gray-800 rounded-full;
+    }
+    ::-webkit-scrollbar-thumb {
+         @apply bg-gray-600 hover:bg-gray-500 rounded-full transition-colors;
+    }
+}
+
+
+/* 3. Custom Components */
+@layer components {
+
+    /* Leaflet custom marker styles */
+    .custom-marker-container {
+        background: transparent;
+        border: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .custom-marker {
+        position: relative;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer; /* Add pointer cursor */
+    }
+    .custom-marker .dot {
+        width: 14px; /* Slightly larger dot */
+        height: 14px;
+        background-color: theme('colors.blue.500');
+        border-radius: 50%;
+        border: 2px solid white;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 10;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+    .custom-marker .pulse {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background-color: rgba(59, 130, 246, 0.4);
+        position: absolute;
+        top: 0; left: 0;
+        transform-origin: center center;
+        animation: pulse-animation 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        z-index: 5;
+    }
+    .custom-marker.hovered .dot, .custom-marker:hover .dot {
+        transform: scale(1.4);
+        background-color: theme('colors.purple.500');
+        border-color: theme('colors.purple.200');
+    }
+    .custom-marker.hovered .pulse, .custom-marker:hover .pulse {
+        animation-duration: 1.2s;
+        background-color: rgba(139, 92, 246, 0.4);
+    }
+    @keyframes pulse-animation { /* Keep pulse animation */
+         0% { transform: scale(0.3); opacity: 0.7; }
+         70% { transform: scale(1); opacity: 0; }
+         100% { transform: scale(1); opacity: 0; }
+    }
+
+    /* Auth Page Background Blobs */
+    .auth-container {
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+    }
+    .auth-container::before, .auth-container::after {
+      content: '';
+      position: absolute;
+      z-index: -1;
+      filter: blur(120px); /* Increase blur */
+      -webkit-filter: blur(120px);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .auth-container::before {
+      width: 400px;
+      height: 400px;
+      background-color: rgba(59, 130, 246, 0.2); /* Slightly more visible blue */
+      top: -100px;
+      left: -150px;
+      animation: pulse-auth 14s infinite alternate ease-in-out;
+    }
+    .auth-container::after {
+      width: 500px;
+      height: 500px;
+      background-color: rgba(168, 85, 247, 0.18); /* Slightly more visible purple */
+      bottom: -150px;
+      right: -200px;
+      animation: pulse-auth 17s infinite alternate-reverse ease-in-out;
+    }
+    @keyframes pulse-auth { /* Keep auth pulse animation */
+         0% { transform: scale(0.8) translate(0, 0); opacity: 0.8; }
+         50% { transform: scale(1.1) translate(30px, -15px); opacity: 1; }
+         100% { transform: scale(0.9) translate(-15px, 20px); opacity: 0.8;}
+    }
+
+    /* Add more custom component styles if needed */
+    /* .btn-primary { @apply py-2 px-5 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-semibold; } */
+}
+
+
+/* 4. Custom Utilities (Keep this minimal) */
+@layer utilities {
+    /* Example: .text-glow { text-shadow: 0 0 8px theme('colors.blue.400'); } */
 }
